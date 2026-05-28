@@ -48,7 +48,7 @@ pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13
 .ico{display:inline-block;width:18px;height:18px;border-radius:4px;flex-shrink:0}
 .ico-overview{background:#38bdf8}.ico-keys{background:#f59e0b}.ico-gateway{background:#a78bfa}
 .ico-strategy{background:#34d399}.ico-logs{background:#f87171}.ico-analytics{background:#fb923c}
-.ico-settings{background:#e2e8f0}.ico-health{background:#f472b6}
+.ico-settings{background:#e2e8f0}.ico-health{background:#f472b6}.ico-setup{background:#22d3ee}
 .pagination{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:#94a3b8}
 .pagination button{padding:4px 12px;font-size:12px}
 @media(max-width:768px){.sidebar{width:48px}.sidebar h1,.sidebar a span:last-child{display:none}.main{padding:16px}.grid-2{grid-template-columns:1fr}}
@@ -65,6 +65,7 @@ pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13
 <a onclick="showTab('analytics')" id="nav-analytics"><span class="ico ico-analytics"></span><span>Analytics</span></a>
 <a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings"></span><span>Settings</span></a>
 <a onclick="showTab('health')" id="nav-health"><span class="ico ico-health"></span><span>Health Check</span></a>
+<a onclick="showTab('setup')" id="nav-setup"><span class="ico ico-setup"></span><span>Setup</span></a>
 </div>
 <div class="main" id="main-content"></div>
 <script>
@@ -93,7 +94,8 @@ const PAGES = {
   logs: { title: 'Error & Eviction Logs', render: renderLogs },
   analytics: { title: 'Analytics', render: renderAnalytics },
   settings: { title: 'Settings', render: renderSettings },
-  health: { title: 'Health Check', render: renderHealth }
+  health: { title: 'Health Check', render: renderHealth },
+  setup: { title: 'Setup Guide', render: renderSetup }
 };
 async function renderOverview() {
   const s = await api('/stats');
@@ -110,6 +112,11 @@ async function renderOverview() {
       <div class="card"><div class="num" style="color:#c084fc">${s.expiredKeys || 0}</div><div class="lbl">Expired Keys</div></div>
       <div class="card"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl">Est. Cost (7d)</div></div>
       <div class="card"><div class="num" style="color:#93c5fd">${totalTokens.toLocaleString()}</div><div class="lbl">Tokens (7d)</div></div>
+      <div class="card" style="grid-column:1/-1;border-color:#38bdf8">
+        <div style="font-size:13px;color:#94a3b8;margin-bottom:4px">Your Gateway URL</div>
+        <code style="font-size:15px;color:#38bdf8;word-break:break-all">https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions</code>
+        <div style="font-size:12px;color:#fde68a;margin-top:6px">Use a Gateway Key as Bearer token. See Setup tab for examples.</div>
+      </div>
     </div>
     <h2 style="margin-top:24px">Daily Requests (7 days)</h2>
     <pre>${JSON.stringify(a, null, 2)}</pre>
@@ -136,6 +143,19 @@ async function renderKeys() {
       <div class="form-group"><label>Label</label><input id="kp-label" placeholder="my-key"></div>
       <button class="primary" onclick="addKey()">Add Key</button>
     </div>
+    <details style="margin-bottom:16px;font-size:13px;color:#94a3b8;cursor:pointer">
+      <summary style="color:#38bdf8;font-size:14px;font-weight:600">Provider Key Links</summary>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <a href="https://platform.openai.com/api-keys" target="_blank" style="color:#38bdf8">OpenAI api.openai.com</a>
+        <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:#38bdf8">Anthropic console.anthropic.com</a>
+        <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#38bdf8">Google aistudio.google.com</a>
+        <a href="https://console.groq.com/keys" target="_blank" style="color:#38bdf8">Groq console.groq.com</a>
+        <a href="https://console.mistral.ai/api-keys" target="_blank" style="color:#38bdf8">Mistral console.mistral.ai</a>
+        <a href="https://api.together.ai/settings/api-keys" target="_blank" style="color:#38bdf8">Together api.together.ai</a>
+        <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:#38bdf8">Deepseek platform.deepseek.com</a>
+        <a href="https://dashboard.cohere.com/api-keys" target="_blank" style="color:#38bdf8">Cohere dashboard.cohere.com</a>
+      </div>
+    </details>
     <table><thead><tr><th>Provider</th><th>Label</th><th>Key</th><th>Status</th><th>Added</th><th></th></tr></thead>
     <tbody>' + rows + '</tbody></table>
   `);
@@ -160,10 +180,11 @@ async function renderGateway() {
   let providerOpts = ['anthropic','openai','google','groq','mistral','together','deepseek','cohere'].map(p => '<option value="'+p+'">'+p+'</option>').join('');
   setContent(`
     <div class="form-row">
-      <div class="form-group"><label>Word (unique key)</label><input id="gw-word" placeholder="customer-1"></div>
+      <div class="form-group"><label>Gateway Key (word/token)</label><input id="gw-word" placeholder="my-app-key"></div>
       <div class="form-group"><label>Provider</label><select id="gw-provider"><option value="">All</option>${providerOpts}</select></div>
       <div class="form-group"><label>Model (optional)</label><input id="gw-model" placeholder="gpt-4o"></div>
       <button class="primary" onclick="addGw()">Add Key</button>
+      <button class="secondary" onclick="genGwKey()">Generate Key</button>
     </div>
     <table><thead><tr><th>Word</th><th>Provider</th><th>Model</th><th>Status</th><th>Usage</th><th>Created</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table>
@@ -178,6 +199,16 @@ async function addGw(){
   if(!provider){showToast('Provider required','error');return}
   await api('/gateway-keys',{method:'POST',body:JSON.stringify({word,provider,model:model||''})});
   showToast('Added','success'); renderGateway();
+}
+function genGwKey() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let key = '';
+  for (let i = 0; i < 32; i++) {
+    if (i > 0 && i % 8 === 0) key += '-';
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  document.getElementById('gw-word').value = key;
+  showToast('Key generated: ' + key, 'success');
 }
 async function renderStrategy() {
   const s = await api('/strategy');
@@ -267,6 +298,43 @@ async function renderHealth() {
       (item.error ? '<pre style="font-size:11px;margin-top:4px">' + item.error + '</pre>' : '') + '</div>';
   }
   setContent('<div class="cards">' + (cards || '<p>No results</p>') + '</div>');
+}
+async function renderSetup() {
+  setContent(`
+    <h2>Your Gateway URL</h2>
+    <pre style="font-size:14px">POST https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions
+Authorization: Bearer &lt;your-gateway-key&gt;</pre>
+
+    <h2 style="margin-top:24px">Generate a Gateway Key</h2>
+    <p style="font-size:14px;color:#94a3b8">Go to <b>Gateway Keys</b> tab and click <b>Generate Key</b> to create a random token, or enter your own word. Use that key as the Bearer token in your apps.</p>
+
+    <h2 style="margin-top:24px">Example: cURL</h2>
+    <pre style="font-size:13px">curl -X POST https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions \\
+  -H "Authorization: Bearer YOUR_GATEWAY_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}]}'</pre>
+
+    <h2 style="margin-top:24px">Example: JavaScript (fetch)</h2>
+    <pre style="font-size:13px">const resp = await fetch("https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions", {
+  method: "POST",
+  headers: { "Authorization": "Bearer YOUR_GATEWAY_KEY", "Content-Type": "application/json" },
+  body: JSON.stringify({ model: "claude-sonnet-4-20250514", messages: [{ role: "user", content: "hi" }] })
+});
+const data = await resp.json();</pre>
+
+    <h2 style="margin-top:24px">Example: Python</h2>
+    <pre style="font-size:13px">import requests
+resp = requests.post(
+    "https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions",
+    headers={"Authorization": "Bearer YOUR_GATEWAY_KEY"},
+    json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]}
+)
+print(resp.json())</pre>
+
+    <h2 style="margin-top:24px">Supported Models</h2>
+    <p style="font-size:14px;color:#94a3b8">Any model from: <b>OpenAI</b> (gpt-4o, gpt-4o-mini, o1), <b>Anthropic</b> (claude-3-5-sonnet, claude-3-opus), <b>Google</b> (gemini-2.0-flash, gemini-1.5-pro), <b>DeepSeek</b>, <b>Groq</b>, <b>Mistral</b>, <b>Cohere</b>, <b>Together</b>.</p>
+    <p style="font-size:14px;color:#94a3b8">First add your provider API keys in the <b>API Keys</b> tab, then generate a Gateway Key in the <b>Gateway Keys</b> tab.</p>
+  `);
 }
 </script>
 </body>
