@@ -49,12 +49,26 @@ pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13
 .ico-overview{background:#38bdf8}.ico-keys{background:#f59e0b}.ico-gateway{background:#a78bfa}
 .ico-strategy{background:#34d399}.ico-logs{background:#f87171}.ico-analytics{background:#fb923c}
 .ico-settings{background:#e2e8f0}.ico-health{background:#f472b6}.ico-setup{background:#22d3ee}
+#login-overlay{position:fixed;inset:0;background:#0b1120;display:flex;align-items:center;justify-content:center;z-index:9999}
+#login-overlay.hidden{display:none}
+.login-box{background:#1e293b;padding:40px;border-radius:16px;border:1px solid #334155;width:360px;max-width:90vw}
+.login-box input{width:100%;padding:12px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:16px;outline:none}
+.login-box input:focus{border-color:#38bdf8}
 .pagination{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:#94a3b8}
 .pagination button{padding:4px 12px;font-size:12px}
 @media(max-width:768px){.sidebar{width:48px}.sidebar h1,.sidebar a span:last-child{display:none}.main{padding:16px}.grid-2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
+<div id="login-overlay">
+  <div class="login-box">
+    <h1 style="color:#38bdf8;margin-bottom:8px">Buddhi Dwar</h1>
+    <p style="color:#94a3b8;margin-bottom:20px;font-size:14px">Admin Dashboard Login</p>
+    <input id="login-pw" type="password" placeholder="Enter admin password" style="width:100%;margin-bottom:12px">
+    <button class="primary" onclick="doLogin()" style="width:100%">Login</button>
+    <p id="login-error" style="color:#fca5a5;font-size:13px;margin-top:8px;display:none">Invalid password</p>
+  </div>
+</div>
 <div class="sidebar">
 <h1>BD</h1>
 <a onclick="showTab('overview')" id="nav-overview" class="active"><span class="ico ico-overview"></span><span>Overview</span></a>
@@ -66,20 +80,34 @@ pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13
 <a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings"></span><span>Settings</span></a>
 <a onclick="showTab('health')" id="nav-health"><span class="ico ico-health"></span><span>Health Check</span></a>
 <a onclick="showTab('setup')" id="nav-setup"><span class="ico ico-setup"></span><span>Setup</span></a>
+<a onclick="logout()" style="margin-top:auto;border-top:1px solid #1e293b;padding-top:12px;color:#f87171"><span style="display:inline-block;width:18px;height:18px;border-radius:4px;background:#f87171;flex-shrink:0"></span><span>Logout</span></a>
 </div>
 <div class="main" id="main-content"></div>
 <script>
-const ADMIN_PW = "2200";
+function getPw() { return localStorage.getItem('bfadmin') || ''; }
 function api(path, opts) {
   return fetch('/admin/api' + path, {
-    headers: { 'Cookie': 'bfadmin=' + ADMIN_PW, 'Content-Type': 'application/json', ...(opts || {}).headers },
+    headers: { 'Cookie': 'bfadmin=' + getPw(), 'Content-Type': 'application/json', ...(opts || {}).headers },
     ...(opts || {})
-  }).then(r => r.json());
+  }).then(r => { if (r.status === 401) { localStorage.removeItem('bfadmin'); showLogin(); throw new Error('unauthorized'); } return r.json(); });
 }
 function showToast(msg, type) {
   const t = document.createElement('div'); t.className = 'toast ' + type;
   t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
 }
+function showLogin() { document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('main-content').innerHTML = ''; }
+function doLogin() {
+  const pw = document.getElementById('login-pw').value;
+  const err = document.getElementById('login-error');
+  if (!pw) { err.style.display = 'block'; err.textContent = 'Enter a password'; return; }
+  localStorage.setItem('bfadmin', pw);
+  fetch('/admin/api/stats', { headers: { 'Cookie': 'bfadmin=' + pw } }).then(r => {
+    if (r.ok) { err.style.display = 'none'; document.getElementById('login-overlay').classList.add('hidden'); showTab('overview'); }
+    else { localStorage.removeItem('bfadmin'); err.style.display = 'block'; err.textContent = 'Invalid password'; }
+  }).catch(() => { localStorage.removeItem('bfadmin'); err.style.display = 'block'; err.textContent = 'Connection error'; });
+}
+document.getElementById('login-pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+function logout() { localStorage.removeItem('bfadmin'); showLogin(); showToast('Logged out', 'success'); }
 function showTab(name) {
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
   const nav = document.getElementById('nav-' + name); if (nav) nav.classList.add('active');
@@ -97,6 +125,7 @@ const PAGES = {
   health: { title: 'Health Check', render: renderHealth },
   setup: { title: 'Setup Guide', render: renderSetup }
 };
+if (!getPw()) { showLogin(); }
 async function renderOverview() {
   const s = await api('/stats');
   const a = await api('/analytics?days=7');
