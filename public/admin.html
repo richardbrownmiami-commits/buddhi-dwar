@@ -84,12 +84,12 @@ pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13
 </div>
 <div class="main" id="main-content"></div>
 <script>
-function getPw() { return localStorage.getItem('bfadmin') || ''; }
+function getPw() { return document.cookie.replace(/(?:(?:^|.*;\s*)bfadmin\s*=\s*([^;]*).*$)|^.*$/, "$1") || ''; }
 function api(path, opts) {
   return fetch('/admin/api' + path, {
-    headers: { 'Cookie': 'bfadmin=' + getPw(), 'Content-Type': 'application/json', ...(opts || {}).headers },
-    ...(opts || {})
-  }).then(r => { if (r.status === 401) { localStorage.removeItem('bfadmin'); showLogin(); throw new Error('unauthorized'); } return r.json(); });
+    headers: { 'Content-Type': 'application/json', ...(opts || {}).headers },
+    credentials: 'same-origin', ...(opts || {})
+  }).then(r => { if (r.status === 401) { document.cookie = 'bfadmin=;max-age=0'; showLogin(); throw new Error('unauthorized'); } return r.json(); });
 }
 function showToast(msg, type) {
   const t = document.createElement('div'); t.className = 'toast ' + type;
@@ -100,14 +100,14 @@ function doLogin() {
   const pw = document.getElementById('login-pw').value;
   const err = document.getElementById('login-error');
   if (!pw) { err.style.display = 'block'; err.textContent = 'Enter a password'; return; }
-  localStorage.setItem('bfadmin', pw);
-  fetch('/admin/api/stats', { headers: { 'Cookie': 'bfadmin=' + pw } }).then(r => {
+  document.cookie = 'bfadmin=' + pw + ';path=/;samesite=lax';
+  fetch('/admin/api/stats', { credentials: 'same-origin' }).then(r => {
     if (r.ok) { err.style.display = 'none'; document.getElementById('login-overlay').classList.add('hidden'); showTab('overview'); }
-    else { localStorage.removeItem('bfadmin'); err.style.display = 'block'; err.textContent = 'Invalid password'; }
-  }).catch(() => { localStorage.removeItem('bfadmin'); err.style.display = 'block'; err.textContent = 'Connection error'; });
+    else { document.cookie = 'bfadmin=;max-age=0'; err.style.display = 'block'; err.textContent = 'Invalid password'; }
+  }).catch(() => { document.cookie = 'bfadmin=;max-age=0'; err.style.display = 'block'; err.textContent = 'Connection error'; });
 }
 document.getElementById('login-pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
-function logout() { localStorage.removeItem('bfadmin'); showLogin(); showToast('Logged out', 'success'); }
+function logout() { document.cookie = 'bfadmin=;max-age=0'; showLogin(); showToast('Logged out', 'success'); }
 function showTab(name) {
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
   const nav = document.getElementById('nav-' + name); if (nav) nav.classList.add('active');
@@ -125,7 +125,7 @@ const PAGES = {
   health: { title: 'Health Check', render: renderHealth },
   setup: { title: 'Setup Guide', render: renderSetup }
 };
-if (!getPw()) { showLogin(); }
+if (!getPw()) { showLogin(); } else { document.getElementById('login-overlay').classList.add('hidden'); }
 async function renderOverview() {
   const s = await api('/stats');
   const a = await api('/analytics?days=7');
