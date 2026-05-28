@@ -159,26 +159,17 @@ async function sendWebhook(event: string, data: any) {
 }
 
 const PROVIDERS = [
-  { name: "openai", baseUrl: "https://api.openai.com", type: "openai", models: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "gpt-4", "gpt-3.5-turbo", "o1", "o1-mini", "o3-mini"] },
-  { name: "anthropic", baseUrl: "https://api.anthropic.com", type: "openai", models: ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"] },
-  { name: "google", baseUrl: "https://generativelanguage.googleapis.com", type: "openai", models: ["gemini-2.0-flash", "gemini-2.0-pro", "gemini-1.5-pro", "gemini-1.5-flash"] },
-  { name: "deepseek", baseUrl: "https://api.deepseek.com", type: "openai", models: ["deepseek-chat", "deepseek-reasoner"] },
-  { name: "groq", baseUrl: "https://api.groq.com/openai", type: "openai", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "deepseek-r1-distill-llama-70b"] },
-  { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-large-latest", "mistral-small-latest", "codestral-latest"] },
-  { name: "openrouter", baseUrl: "https://openrouter.ai/api", type: "openai", models: ["anthropic/claude-sonnet-4.6", "openai/gpt-4o", "google/gemini-2.0-flash", "deepseek/deepseek-r1", "meta-llama/llama-3.3-70b"] },
-  { name: "together", baseUrl: "https://api.together.xyz", type: "openai", models: ["meta-llama/Llama-3.3-70B", "mistralai/Mixtral-8x7B", "deepseek-ai/DeepSeek-R1"] },
-  { name: "cohere", baseUrl: "https://api.cohere.com", type: "openai", models: ["command-r-plus", "command-r", "command"] },
+  { name: "groq", baseUrl: "https://api.groq.com/openai", type: "openai", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] },
+  { name: "google", baseUrl: "https://generativelanguage.googleapis.com", type: "openai", models: ["gemini-2.0-flash"] },
+  { name: "openrouter", baseUrl: "https://openrouter.ai/api", type: "openai", models: ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-v4-flash:free", "meta-llama/llama-3.2-3b-instruct:free"] },
+  { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-small-latest"] },
 ];
 
 /* â”€â”€ Token Counting & Pricing â”€â”€ */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
-  "gpt-4o": { input: 2.5, output: 10 }, "gpt-4o-mini": { input: 0.15, output: 0.6 }, "gpt-4-turbo": { input: 10, output: 30 }, "gpt-4": { input: 30, output: 60 }, "gpt-3.5-turbo": { input: 0.5, output: 1.5 },
-  "o1": { input: 15, output: 60 }, "o1-mini": { input: 1.1, output: 4.4 }, "o3-mini": { input: 1.1, output: 4.4 },
-  "claude-3-5-sonnet": { input: 3, output: 15 }, "claude-3-opus": { input: 15, output: 75 }, "claude-3-sonnet": { input: 3, output: 15 }, "claude-3-haiku": { input: 0.25, output: 1.25 },
-  "gemini-2.0-flash": { input: 0.1, output: 0.4 }, "gemini-2.0-pro": { input: 2, output: 8 }, "gemini-1.5-pro": { input: 3.5, output: 10.5 }, "gemini-1.5-flash": { input: 0.075, output: 0.3 },
-  "deepseek-chat": { input: 0.14, output: 0.28 }, "deepseek-reasoner": { input: 0.55, output: 2.19 },
-  "llama-3.3-70b": { input: 0.59, output: 0.79 }, "llama-3.1-8b": { input: 0.05, output: 0.08 }, "mixtral-8x7b": { input: 0.24, output: 0.24 }, "deepseek-r1-distill": { input: 0.5, output: 0.5 },
-  "mistral-large": { input: 2, output: 6 }, "mistral-small": { input: 0.2, output: 0.6 }, "codestral": { input: 1, output: 3 },
+  "gemini-2.0-flash": { input: 0.1, output: 0.4 },
+  "llama-3.3-70b": { input: 0.59, output: 0.79 }, "llama-3.1-8b": { input: 0.05, output: 0.08 },
+  "mistral-small": { input: 0.2, output: 0.6 },
 };
 function getPrice(model: string): { input: number; output: number } {
   const key = Object.keys(MODEL_PRICING).find(k => model.toLowerCase().includes(k.toLowerCase()));

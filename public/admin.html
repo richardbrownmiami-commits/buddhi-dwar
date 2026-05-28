@@ -168,7 +168,7 @@ async function renderKeys() {
   }
   setContent(`
     <div class="form-row">
-      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>anthropic</option><option>openai</option><option>google</option><option>groq</option><option>mistral</option><option>together</option><option>deepseek</option><option>cohere</option><option>openrouter</option></select></div>
+      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>groq</option><option>google</option><option>mistral</option><option>openrouter</option></select></div>
       <div class="form-group"><label>API Key</label><input id="kp-key" placeholder="sk-..."></div>
       <div class="form-group"><label>Label</label><input id="kp-label" placeholder="my-key"></div>
       <button class="primary" onclick="addKey()">Add Key</button>
@@ -176,14 +176,9 @@ async function renderKeys() {
     <details style="margin-bottom:16px;font-size:13px;color:#94a3b8;cursor:pointer">
       <summary style="color:#38bdf8;font-size:14px;font-weight:600">Provider Key Links</summary>
       <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
-        <a href="https://platform.openai.com/api-keys" target="_blank" style="color:#38bdf8">OpenAI api.openai.com</a>
-        <a href="https://console.anthropic.com/settings/keys" target="_blank" style="color:#38bdf8">Anthropic console.anthropic.com</a>
-        <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#38bdf8">Google aistudio.google.com</a>
         <a href="https://console.groq.com/keys" target="_blank" style="color:#38bdf8">Groq console.groq.com</a>
+        <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#38bdf8">Google aistudio.google.com</a>
         <a href="https://console.mistral.ai/api-keys" target="_blank" style="color:#38bdf8">Mistral console.mistral.ai</a>
-        <a href="https://api.together.ai/settings/api-keys" target="_blank" style="color:#38bdf8">Together api.together.ai</a>
-        <a href="https://platform.deepseek.com/api_keys" target="_blank" style="color:#38bdf8">Deepseek platform.deepseek.com</a>
-        <a href="https://dashboard.cohere.com/api-keys" target="_blank" style="color:#38bdf8">Cohere dashboard.cohere.com</a>
         <a href="https://openrouter.ai/keys" target="_blank" style="color:#38bdf8">OpenRouter openrouter.ai</a>
       </div>
     </details>
@@ -252,7 +247,7 @@ async function renderStrategy() {
       '<p style="font-size:13px;color:#94a3b8">Strategy: <b style="color:#e2e8f0">' + strat + '</b></p></div>';
   }
   html += '</div><h2 style="margin-top:24px">Set Strategy</h2><div class="form-row">' +
-    '<div class="form-group"><label>Provider</label><select id="str-provider">' + ['anthropic','openai','google','groq','mistral','together','deepseek','cohere','openrouter'].map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
+    '<div class="form-group"><label>Provider</label><select id="str-provider">' + ['groq','google','mistral','openrouter'].map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
     '<div class="form-group"><label>Strategy</label><select id="str-strategy"><option>round-robin</option><option>lowest-latency</option><option>least-loaded</option></select></div>' +
     '<button class="primary" onclick="updateStr()">Set</button></div>' +
     '<h2>Raw</h2><pre>' + JSON.stringify(s, null, 2) + '</pre>';
@@ -366,7 +361,7 @@ resp = requests.post(
 print(resp.json())</pre>
 
     <h2 style="margin-top:24px">Supported Models</h2>
-    <p style="font-size:14px;color:#94a3b8">Any model from: <b>OpenAI</b> (gpt-4o, gpt-4o-mini, o1), <b>Anthropic</b> (claude-3-5-sonnet, claude-3-opus), <b>Google</b> (gemini-2.0-flash, gemini-1.5-pro), <b>DeepSeek</b>, <b>Groq</b>, <b>Mistral</b>, <b>Cohere</b>, <b>Together</b>, <b>OpenRouter</b>.</p>
+    <p style="font-size:14px;color:#94a3b8">Free-tier models: <b>Groq</b> (llama-3.3-70b-versatile), <b>Google</b> (gemini-2.0-flash), <b>Mistral</b> (mistral-small-latest), <b>OpenRouter</b> (free models).</p>
     <p style="font-size:14px;color:#94a3b8">First add your provider API keys in the <b>API Keys</b> tab, then generate a Gateway Key in the <b>Gateway Keys</b> tab.</p>
   `);
 }
