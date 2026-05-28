@@ -573,6 +573,28 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     }
   }
 
+  if (path === "/admin/api/list-models") {
+    const body = await req.json() as any;
+    const { pname, id } = body;
+    if (!pname || !id) return new Response(JSON.stringify({ error: "provider and id required" }), { status: 400, headers: { "content-type": "application/json" } });
+    const keys = await getKeys(pname);
+    const ke = keys.find((k: any) => k.id === id);
+    if (!ke) return new Response(JSON.stringify({ error: "key not found" }), { status: 404, headers: { "content-type": "application/json" } });
+    const p = PROVIDERS.find((pr: any) => pr.name === pname);
+    if (!p) return new Response(JSON.stringify({ error: "provider not found" }), { status: 404, headers: { "content-type": "application/json" } });
+    try {
+      const hdrs: any = {};
+      if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
+      const resp = await fetch(p.baseUrl + "/v1/models", { headers: hdrs });
+      if (!resp.ok) return new Response(JSON.stringify({ error: "HTTP " + resp.status }), { status: 502, headers: { "content-type": "application/json" } });
+      const data = await resp.json() as any;
+      const models = (data.data || []).map((m: any) => m.id);
+      return new Response(JSON.stringify({ ok: true, models }), { headers: { "content-type": "application/json" } });
+    } catch (e: any) {
+      return new Response(JSON.stringify({ ok: false, error: e.message }), { headers: { "content-type": "application/json" } });
+    }
+  }
+
   if (path === "/admin/api/health-check") {
     const results: any[] = [];
     for (const p of PROVIDERS) {
