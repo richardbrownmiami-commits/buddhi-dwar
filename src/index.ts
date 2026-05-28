@@ -9,7 +9,7 @@ let __MASTER_KEY = "bf-master-kun-2026";
 interface KeyEntry { id: string; apiKey: string; label: string; addedAt: number; }
 type CBState = "closed" | "open" | "half-open";
 interface HealthEntry { status: "active" | "warming" | "dead" | "expired"; cbState: CBState; lastCheck: number; consecutiveFailDays: number; consecutiveFailures: number; lastError: string; lastUsed: number; successCount: number; failCount: number; avgResponseTime: number; lastResponseTime: number; }
-interface GatewayKey { word: string; provider: string; model: string; label: string; createdAt: number; enabled: boolean; usage: number; }
+interface GatewayKey { word: string; label: string; createdAt: number; enabled: boolean; usage: number; }
 interface EvictionLog { id: string; provider: string; keyId: string; reason: string; evictedAt: number; }
 interface ReqLog { model: string; provider: string; keyId: string; status: number; latencyMs: number; timestamp: number; promptTokens?: number; completionTokens?: number; cost?: number; }
 interface DailyAnalytics { date: string; requests: number; successes: number; failures: number; totalLatencyMs: number; totalPromptTokens: number; totalCompletionTokens: number; totalCost: number; providerStats: Record<string, { requests: number; successes: number; failures: number; totalLatencyMs: number; totalPromptTokens: number; totalCompletionTokens: number; totalCost: number }>; }
@@ -436,8 +436,8 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     }
     if (req.method === "POST") {
       const body = await req.json() as any;
-      if (!body.word || !body.provider) return new Response(JSON.stringify({ error: "word and provider required" }), { status: 400, headers: { "content-type": "application/json" } });
-      const gw: GatewayKey = { word: body.word, provider: body.provider, model: body.model || "", label: body.label || body.word, createdAt: Date.now(), enabled: true, usage: 0 };
+      if (!body.word) return new Response(JSON.stringify({ error: "word required" }), { status: 400, headers: { "content-type": "application/json" } });
+      const gw: GatewayKey = { word: body.word, label: body.label || body.word, createdAt: Date.now(), enabled: true, usage: 0 };
       await setGwKey(body.word, gw);
       return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
     }
@@ -453,7 +453,6 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       const gw = await getGwKey(body.word);
       if (!gw) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
       if (body.enabled !== undefined) gw.enabled = body.enabled;
-      if (body.model) gw.model = body.model;
       if (body.label) gw.label = body.label;
       await setGwKey(body.word, gw);
       return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });

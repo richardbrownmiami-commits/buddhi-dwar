@@ -208,33 +208,28 @@ async function addKey() {
 }
 async function renderGateway() {
   const g = await api('/gateway-keys');
-  let rows = g.map(k => '<tr><td>' + k.word + '</td><td>' + (k.provider||'') + '</td><td>' + (k.model||'') + '</td>' +
+  let rows = g.map(k => '<tr><td>' + k.word + '</td>' +
     '<td><span class="tag ' + (k.enabled?'active':'fail') + '">' + (k.enabled?'Active':'Disabled') + '</span></td>' +
     '<td>' + (k.usage||0) + '</td>' +
     '<td style="font-size:12px;color:#94a3b8">' + (k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '') + '</td>' +
     '<td><button onclick="toggleGw(\'' + k.word + '\',!' + k.enabled + ')" style="padding:4px 10px;font-size:12px">' + (k.enabled?'Disable':'Enable') + '</button>' +
     '<button class="danger" onclick="deleteGw(\'' + k.word + '\')" style="padding:4px 10px;font-size:12px">Del</button></td></tr>').join('');
-  let providerOpts = ['anthropic','openai','google','groq','mistral','together','deepseek','cohere','openrouter'].map(p => '<option value="'+p+'">'+p+'</option>').join('');
   setContent(`
     <div class="form-row">
       <div class="form-group"><label>Gateway Key (word/token)</label><input id="gw-word" placeholder="my-app-key"></div>
-      <div class="form-group"><label>Provider</label><select id="gw-provider"><option value="">All</option>${providerOpts}</select></div>
-      <div class="form-group"><label>Model (optional)</label><input id="gw-model" placeholder="gpt-4o"></div>
       <button class="primary" onclick="addGw()">Add Key</button>
       <button class="secondary" onclick="genGwKey()">Generate Key</button>
     </div>
-    <table><thead><tr><th>Word</th><th>Provider</th><th>Model</th><th>Status</th><th>Usage</th><th>Created</th><th></th></tr></thead>
+    <table><thead><tr><th>Word</th><th>Status</th><th>Usage</th><th>Created</th><th></th></tr></thead>
     <tbody>${rows}</tbody></table>
   `);
 }
 async function toggleGw(word,enabled){await api('/gateway-keys',{method:'PATCH',body:JSON.stringify({word,enabled})}); renderGateway();}
 async function deleteGw(word){if(!confirm('Delete "'+word+'"?'))return;await api('/gateway-keys',{method:'DELETE',body:JSON.stringify({word})}); renderGateway();}
 async function addGw(){
-  const word=document.getElementById('gw-word').value; const provider=document.getElementById('gw-provider').value;
-  const model=document.getElementById('gw-model').value;
+  const word=document.getElementById('gw-word').value;
   if(!word){showToast('Word required','error');return}
-  if(!provider){showToast('Provider required','error');return}
-  await api('/gateway-keys',{method:'POST',body:JSON.stringify({word,provider,model:model||''})});
+  await api('/gateway-keys',{method:'POST',body:JSON.stringify({word})});
   showToast('Added','success'); renderGateway();
 }
 function genGwKey() {
