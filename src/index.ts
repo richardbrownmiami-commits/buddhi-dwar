@@ -163,7 +163,7 @@ const PROVIDERS = [
   { name: "anthropic", baseUrl: "https://api.anthropic.com", type: "openai", models: ["claude-3-5-sonnet", "claude-3-opus", "claude-3-sonnet", "claude-3-haiku"] },
   { name: "google", baseUrl: "https://generativelanguage.googleapis.com", type: "openai", models: ["gemini-2.0-flash", "gemini-2.0-pro", "gemini-1.5-pro", "gemini-1.5-flash"] },
   { name: "deepseek", baseUrl: "https://api.deepseek.com", type: "openai", models: ["deepseek-chat", "deepseek-reasoner"] },
-  { name: "groq", baseUrl: "https://api.groq.com/openai", type: "openai", models: ["llama-3.3-70b", "llama-3.1-8b", "mixtral-8x7b", "deepseek-r1-distill"] },
+  { name: "groq", baseUrl: "https://api.groq.com/openai", type: "openai", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant", "mixtral-8x7b-32768", "deepseek-r1-distill-llama-70b"] },
   { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-large", "mistral-small", "codestral"] },
   { name: "openrouter", baseUrl: "https://openrouter.ai/api", type: "openai", models: ["anthropic/claude-3.5-sonnet", "openai/gpt-4o", "google/gemini-2.0-flash", "deepseek/deepseek-r1", "meta-llama/llama-3.3-70b"] },
   { name: "together", baseUrl: "https://api.together.xyz", type: "openai", models: ["meta-llama/Llama-3.3-70B", "mistralai/Mixtral-8x7B", "deepseek-ai/DeepSeek-R1"] },
