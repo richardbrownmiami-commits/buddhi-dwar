@@ -154,7 +154,7 @@ async function sendWebhook(event: string, data: any) {
         timestamp: new Date().toISOString()
       }]
     };
-    await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+    await fetch(_WEBHOOK_URL, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
   } catch (e) { /* silent */ }
 }
 
