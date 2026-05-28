@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Buddhi Dwar Admin</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
+body{display:flex;min-height:100vh;background:#0b1120;color:#e2e8f0}
+.sidebar{width:220px;background:#111827;padding:20px 0;border-right:1px solid #1e293b;flex-shrink:0}
+.sidebar h1{font-size:18px;color:#38bdf8;padding:0 16px 20px;border-bottom:1px solid #1e293b;margin-bottom:8px}
+.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:#94a3b8;text-decoration:none;font-size:14px;cursor:pointer;transition:.15s}
+.sidebar a:hover,.sidebar a.active{background:#1e293b;color:#38bdf8;border-right:3px solid #38bdf8}
+.main{flex:1;padding:24px}section{display:none}section.active{display:block}
+h2{font-size:20px;color:#f1f5f9;margin-bottom:20px;padding-bottom:8px;border-bottom:1px solid #1e293b}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px}
+.card{background:#1e293b;border-radius:10px;padding:16px;border:1px solid #334155}
+.card .num{font-size:28px;font-weight:700;color:#38bdf8}
+.card .lbl{font-size:12px;color:#94a3b8;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px}
+th{color:#94a3b8;font-weight:600;padding:10px 8px;border-bottom:2px solid #334155;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+td{padding:10px 8px;border-bottom:1px solid #1e293b;color:#e2e8f0}
+tr:hover td{background:#111827}
+input,select{padding:10px 12px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;width:100%;max-width:400px;margin:4px 0;outline:none;transition:.15s}
+input:focus,select:focus{border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,.15)}
+button{padding:10px 20px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;margin:4px 4px 4px 0;transition:.15s}
+button.primary{background:#38bdf8;color:#0b1120}button.primary:hover{background:#7dd3fc}
+button.danger{background:#ef4444;color:#fff}button.danger:hover{background:#f87171}
+button.secondary{background:#334155;color:#e2e8f0}button.secondary:hover{background:#475569}
+pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13px;max-height:500px;line-height:1.5;border:1px solid #1e293b}
+.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
+.tag.ok{background:rgba(22,163,74,.2);color:#86efac;border:1px solid #166534}
+.tag.fail{background:rgba(153,27,27,.2);color:#fca5a5;border:1px solid #991b1b}
+.tag.active{background:rgba(30,64,175,.2);color:#93c5fd;border:1px solid #1e40af}
+.tag.warning{background:rgba(146,64,14,.2);color:#fde68a;border:1px solid #92400e}
+.tag.closed{background:rgba(22,163,74,.2);color:#86efac;border:1px solid #166534}
+.tag.open{background:rgba(153,27,27,.2);color:#fca5a5;border:1px solid #991b1b}
+.tag.half-open{background:rgba(146,64,14,.2);color:#fde68a;border:1px solid #92400e}
+.form-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+.form-row>*{flex:1;min-width:200px}
+.form-row button{flex:0 0 auto}
+.form-group label{display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
+.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;font-size:14px;z-index:1000;animation:slideIn .3s;max-width:400px}
+.toast.success{background:#166534;color:#86efac;border:1px solid #22c55e}
+.toast.error{background:#991b1b;color:#fca5a5;border:1px solid #ef4444}
+@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:768px){.sidebar{width:60px}.sidebar h1,.sidebar a span{display:none}.main{padding:16px}.grid-2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="sidebar">
+<h1>ðŸª· BD</h1>
+<a onclick="showTab('overview')" id="nav-overview" class="active"><span>ðŸ“Š</span><span>Overview</span></a>
+<a onclick="showTab('keys')" id="nav-keys"><span>ðŸ”‘</span><span>API Keys</span></a>
+<a onclick="showTab('gateway')" id="nav-gateway"><span>ðŸšª</span><span>Gateway Keys</span></a>
+<a onclick="showTab('strategy')" id="nav-strategy"><span>ðŸŽ¯</span><span>Strategy</span></a>
+<a onclick="showTab('logs')" id="nav-logs"><span>ðŸ“‹</span><span>Logs</span></a>
+<a onclick="showTab('analytics')" id="nav-analytics"><span>ðŸ“ˆ</span><span>Analytics</span></a>
+<a onclick="showTab('settings')" id="nav-settings"><span>âš™ï¸</span><span>Settings</span></a>
+<a onclick="showTab('health')" id="nav-health"><span>â¤ï¸</span><span>Health Check</span></a>
+</div>
+<div class="main" id="main-content"></div>
+<script>
+const ADMIN_PW = "2200";
+function api(path, opts) {
+  return fetch('/admin/api' + path, {
+    headers: { 'Cookie': 'bfadmin=' + ADMIN_PW, 'Content-Type': 'application/json', ...(opts || {}).headers },
+    ...(opts || {})
+  }).then(r => r.json());
+}
+function showToast(msg, type) {
+  const t = document.createElement('div'); t.className = 'toast ' + type;
+  t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
+}
+function showTab(name) {
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  const nav = document.getElementById('nav-' + name); if (nav) nav.classList.add('active');
+  if (PAGES[name] && PAGES[name].render) PAGES[name].render();
+}
+function setContent(h) { document.getElementById('main-content').innerHTML = h; }
+const PAGES = {
+  overview: { title: 'Dashboard Overview', render: renderOverview },
+  keys: { title: 'API Keys', render: renderKeys },
+  gateway: { title: 'Gateway Keys', render: renderGateway },
+  strategy: { title: 'Routing Strategy', render: renderStrategy },
+  logs: { title: 'Error & Eviction Logs', render: renderLogs },
+  analytics: { title: 'Analytics', render: renderAnalytics },
+  settings: { title: 'Settings', render: renderSettings },
+  health: { title: 'Health Check', render: renderHealth }
+};
+async function renderOverview() {
+  const s = await api('/stats');
+  const a = await api('/analytics?days=7');
+  let totalCost = 0; let totalTokens = 0;
+  if (Array.isArray(a)) { a.forEach(d => { totalCost += d.totalCost || 0; totalTokens += (d.totalPromptTokens || 0) + (d.totalCompletionTokens || 0); }); }
+  setContent(`
+    <div class="cards">
+      <div class="card"><div class="num">${s.requestsToday || 0}</div><div class="lbl">Requests Today</div></div>
+      <div class="card"><div class="num">${s.totalKeys || 0}</div><div class="lbl">Total Keys</div></div>
+      <div class="card"><div class="num" style="color:#86efac">${s.activeKeys || 0}</div><div class="lbl">Active Keys</div></div>
+      <div class="card"><div class="num" style="color:#fca5a5">${s.deadKeys || 0}</div><div class="lbl">Dead Keys</div></div>
+      <div class="card"><div class="num" style="color:#fde68a">${s.warmingKeys || 0}</div><div class="lbl">Warming Keys</div></div>
+      <div class="card"><div class="num" style="color:#c084fc">${s.expiredKeys || 0}</div><div class="lbl">Expired Keys</div></div>
+      <div class="card"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl">Est. Cost (7d)</div></div>
+      <div class="card"><div class="num" style="color:#93c5fd">${totalTokens.toLocaleString()}</div><div class="lbl">Tokens (7d)</div></div>
+    </div>
+    <h2 style="margin-top:24px">Daily Requests (7 days)</h2>
+    <pre>${JSON.stringify(a, null, 2)}</pre>
+  `);
+}
+async function renderKeys() {
+  const raw = await api('/keys');
+  let rows = '';
+  for (const [pname, keys] of Object.entries(raw)) {
+    for (const k of keys) {
+      const h = await api('/test-key', { method: 'POST', body: JSON.stringify({ pname, id: k.id }) });
+      const st = h.ok ? 'ok' : 'fail';
+      rows += '<tr><td>' + pname + '</td><td style="font-size:11px;color:#94a3b8">' + (k.label||'') + '</td>' +
+        '<td><code style="font-size:11px;color:#94a3b8">' + (k.apiKey||'').slice(0,8) + '...</code></td>' +
+        '<td><span class="tag ' + st + '">' + st + '</span></td>' +
+        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : 'â€”') + '</td>' +
+        '<td><button class="danger" onclick="deleteKey(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 10px;font-size:12px">Del</button></td></tr>';
+    }
+  }
+  setContent(`
+    <div class="form-row">
+      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>anthropic</option><option>openai</option><option>google</option><option>groq</option><option>mistral</option><option>together</option><option>deepseek</option><option>cohere</option></select></div>
+      <div class="form-group"><label>API Key</label><input id="kp-key" placeholder="sk-..."></div>
+      <div class="form-group"><label>Label</label><input id="kp-label" placeholder="my-key"></div>
+      <button class="primary" onclick="addKey()">Add Key</button>
+    </div>
+    <table><thead><tr><th>Provider</th><th>Label</th><th>Key</th><th>Status</th><th>Added</th><th></th></tr></thead>
+    <tbody>' + rows + '</tbody></table>
+  `);
+}
+async function deleteKey(pname, id) { if (!confirm('Delete key?')) return; await api('/keys', { method: 'DELETE', body: JSON.stringify({ pname, id }) }); renderKeys(); }
+async function addKey() {
+  const pname = document.getElementById('kp-provider').value;
+  const apiKey = document.getElementById('kp-key').value;
+  const label = document.getElementById('kp-label').value || (pname + '_' + Date.now());
+  if (!apiKey) { showToast('Key required', 'error'); return; }
+  await api('/keys', { method: 'POST', body: JSON.stringify({ pname, apiKey, label }) });
+  showToast('Added', 'success'); renderKeys();
+}
+async function renderGateway() {
+  const g = await api('/gateway-keys');
+  let rows = g.map(k => '<tr><td>' + k.word + '</td><td>' + (k.provider||'') + '</td><td>' + (k.model||'') + '</td>' +
+    '<td><span class="tag ' + (k.enabled?'active':'fail') + '">' + (k.enabled?'Active':'Disabled') + '</span></td>' +
+    '<td>' + (k.usage||0) + '</td>' +
+    '<td style="font-size:12px;color:#94a3b8">' + (k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '') + '</td>' +
+    '<td><button onclick="toggleGw(\'' + k.word + '\',!' + k.enabled + ')" style="padding:4px 10px;font-size:12px">' + (k.enabled?'Disable':'Enable') + '</button>' +
+    '<button class="danger" onclick="deleteGw(\'' + k.word + '\')" style="padding:4px 10px;font-size:12px">Del</button></td></tr>').join('');
+  let providerOpts = ['anthropic','openai','google','groq','mistral','together','deepseek','cohere'].map(p => '<option value="'+p+'">'+p+'</option>').join('');
+  setContent(`
+    <div class="form-row">
+      <div class="form-group"><label>Word (unique key)</label><input id="gw-word" placeholder="customer-1"></div>
+      <div class="form-group"><label>Provider</label><select id="gw-provider"><option value="">All</option>${providerOpts}</select></div>
+      <div class="form-group"><label>Model (optional)</label><input id="gw-model" placeholder="gpt-4o"></div>
+      <button class="primary" onclick="addGw()">Add Key</button>
+    </div>
+    <table><thead><tr><th>Word</th><th>Provider</th><th>Model</th><th>Status</th><th>Usage</th><th>Created</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>
+  `);
+}
+async function toggleGw(word,enabled){await api('/gateway-keys',{method:'PATCH',body:JSON.stringify({word,enabled})}); renderGateway();}
+async function deleteGw(word){if(!confirm('Delete "'+word+'"?'))return;await api('/gateway-keys',{method:'DELETE',body:JSON.stringify({word})}); renderGateway();}
+async function addGw(){
+  const word=document.getElementById('gw-word').value; const provider=document.getElementById('gw-provider').value;
+  const model=document.getElementById('gw-model').value;
+  if(!word){showToast('Word required','error');return}
+  if(!provider){showToast('Provider required','error');return}
+  await api('/gateway-keys',{method:'POST',body:JSON.stringify({word,provider,model:model||''})});
+  showToast('Added','success'); renderGateway();
+}
+async function renderStrategy() {
+  const s = await api('/strategy');
+  let html = '<div class="cards">';
+  for (const [prov, strat] of Object.entries(s)) {
+    html += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:8px">' + prov + '</h3>' +
+      '<p style="font-size:13px;color:#94a3b8">Strategy: <b style="color:#e2e8f0">' + strat + '</b></p></div>';
+  }
+  html += '</div><h2 style="margin-top:24px">Set Strategy</h2><div class="form-row">' +
+    '<div class="form-group"><label>Provider</label><select id="str-provider">' + ['anthropic','openai','google','groq','mistral','together','deepseek','cohere'].map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
+    '<div class="form-group"><label>Strategy</label><select id="str-strategy"><option>round-robin</option><option>lowest-latency</option><option>least-loaded</option></select></div>' +
+    '<button class="primary" onclick="updateStr()">Set</button></div>' +
+    '<h2>Raw</h2><pre>' + JSON.stringify(s, null, 2) + '</pre>';
+  setContent(html);
+}
+async function updateStr() {
+  const pname = document.getElementById('str-provider').value;
+  const strategy = document.getElementById('str-strategy').value;
+  await api('/strategy', { method: 'POST', body: JSON.stringify({ pname, strategy }) });
+  showToast('Updated', 'success'); renderStrategy();
+}
+async function renderLogs() {
+  const l = await api('/logs');
+  if(!Array.isArray(l)||l.length===0){setContent('<p>No logs</p>');return}
+  let rows = l.slice(0,100).map(e => '<tr><td style="color:#94a3b8;font-size:12px">' + (e.ts ? new Date(e.ts).toLocaleString() : (e.evictedAt ? new Date(e.evictedAt).toLocaleString() : 'â€”')) + '</td>' +
+    '<td>' + (e.provider||'') + '</td><td>' + (e.keyId||'') + '</td><td>' + (e.reason||e.error||e.message||'') + '</td></tr>').join('');
+  setContent('<table><thead><tr><th>Time</th><th>Provider</th><th>Key</th><th>Message</th></tr></thead><tbody>' + rows + '</tbody></table>');
+}
+async function renderAnalytics() {
+  const a = await api('/analytics?days=30');
+  if(!Array.isArray(a)||a.length===0){setContent('<p>No analytics data</p>');return}
+  let rows = a.map(d => '<tr><td>' + (d.date||'â€”') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
+    '<td>' + (d.successes||0) + '</td><td>' + ((d.totalPromptTokens||0).toLocaleString()) + '</td>' +
+    '<td>' + ((d.totalCompletionTokens||0).toLocaleString()) + '</td><td>$' + ((d.totalCost||0).toFixed(4)) + '</td></tr>').join('');
+  let totalReq=0,totalFail=0,totalCost=0,totalPrompt=0,totalComp=0;
+  a.forEach(d=>{totalReq+=d.requests||0;totalFail+=d.failures||0;totalCost+=d.totalCost||0;totalPrompt+=d.totalPromptTokens||0;totalComp+=d.totalCompletionTokens||0;});
+  setContent(`
+    <div class="cards">
+      <div class="card"><div class="num">${totalReq}</div><div class="lbl">Requests (30d)</div></div>
+      <div class="card"><div class="num" style="color:#fca5a5">${totalFail}</div><div class="lbl">Errors (30d)</div></div>
+      <div class="card"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl">Cost (30d)</div></div>
+      <div class="card"><div class="num">${(totalPrompt+totalComp).toLocaleString()}</div><div class="lbl">Tokens (30d)</div></div>
+    </div>
+    <table><thead><tr><th>Date</th><th>Req</th><th>Err</th><th>Success</th><th>Prompt Tok</th><th>Comp Tok</th><th>Cost</th></tr></thead><tbody>${rows}</tbody></table>
+  `);
+}
+async function renderSettings() {
+  const s = await api('/cache');
+  const w = await api('/providers');
+  setContent(`
+    <div class="form-group"><label>Cache TTL (seconds)</label><input id="set-ttl" type="number" value="${s.ttlSeconds||300}"></div>
+    <div class="form-group"><label>Cache Enabled</label><select id="set-cache-enabled"><option value="true" ${s.enabled?'selected':''}>Yes</option><option value="false" ${!s.enabled?'selected':''}>No</option></select></div>
+    <div style="margin-top:16px"><button class="primary" onclick="saveCache()">Save Cache Settings</button></div>
+    <h2 style="margin-top:32px">Providers</h2>
+    <pre>${JSON.stringify(w,null,2)}</pre>
+  `);
+}
+async function saveCache() {
+  const ttlSeconds = parseInt(document.getElementById('set-ttl').value) || 300;
+  const enabled = document.getElementById('set-cache-enabled').value === 'true';
+  await api('/cache', { method: 'POST', body: JSON.stringify({ ttlSeconds, enabled }) });
+  showToast('Saved', 'success'); renderSettings();
+}
+async function renderHealth() {
+  setContent('<p>Running health checks...</p>');
+  const h = await api('/health-check');
+  let cards = '';
+  for(const item of h) {
+    const ok = item.status === 'ok' ? 'ok' : 'fail';
+    cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px">' + (item.provider||'') + ' / ' + (item.keyId||'').slice(0,8) + '</h3>' +
+      '<p><span class="tag ' + ok + '">' + (item.status||'?') + '</span></p>' +
+      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'â€”') + ' | CB: ' + (item.cbState||'â€”') + '</p>' +
+      (item.error ? '<pre style="font-size:11px;margin-top:4px">' + item.error + '</pre>' : '') + '</div>';
+  }
+  setContent('<div class="cards">' + (cards || '<p>No results</p>') + '</div>');
+}
+</script>
+</body>
+</html>

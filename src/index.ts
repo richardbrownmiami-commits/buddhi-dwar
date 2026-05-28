@@ -2,6 +2,7 @@ const ADMIN_PASSWORD = "2200";
 const DAY_MS = 86400000;
 const EVICT_DAYS = 5;
 let _BF: KVNamespace;
+let _ASSETS: Fetcher;
 let _WEBHOOK_URL = "";
 let __MASTER_KEY = "bf-master-kun-2026";
 
@@ -189,7 +190,7 @@ function estimateCost(model: string, promptTokens: number, completionTokens: num
   return (promptTokens * p.input + completionTokens * p.output) / 1000000;
 }
 
-interface Env { BF: KVNamespace; WEBHOOK_URL?: string; }
+interface Env { BF: KVNamespace; WEBHOOK_URL?: string; ASSETS?: Fetcher; }
 
 const CB_COOLDOWN_MS = 300000; // 5 min cooldown before half-open probe
 
@@ -583,77 +584,6 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     return new Response(JSON.stringify(results), { headers: { "content-type": "application/json" } });
   }
 
-  if (path === "/admin" || path === "/admin/") {
-    const today = getToday();
-    const reqsToday = await getStat(today);
-    const html = `<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Buddhi Dwar Admin</title><style>
-*{margin:0;padding:0;box-sizing:border-box}body{font-family:system-ui,sans-serif;background:#0f172a;color:#e2e8f0;padding:20px}
-h1{color:#38bdf8;margin-bottom:8px}.sub{color:#94a3b8;margin-bottom:24px}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px;margin-bottom:24px}
-.card{background:#1e293b;border-radius:8px;padding:16px}.card .num{font-size:28px;font-weight:700;color:#38bdf8}
-.card .lbl{font-size:13px;color:#94a3b8;margin-top:4px}
-nav{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
-nav a{color:#e2e8f0;text-decoration:none;background:#1e293b;padding:8px 16px;border-radius:6px;font-size:14px}
-nav a:hover{background:#334155}
-section{background:#1e293b;border-radius:8px;padding:16px;margin-bottom:16px;display:none}
-section.active{display:block}h2{color:#38bdf8;margin-bottom:12px;font-size:18px}
-pre{background:#0f172a;padding:12px;border-radius:6px;overflow:auto;font-size:13px;max-height:400px}
-table{width:100%;border-collapse:collapse;font-size:14px}th,td{text-align:left;padding:8px;border-bottom:1px solid #334155}
-th{color:#94a3b8;font-weight:600}input,select{padding:8px;border-radius:6px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;margin:4px}
-button{padding:8px 16px;border-radius:6px;border:none;background:#38bdf8;color:#0f172a;font-weight:600;cursor:pointer;margin:4px}
-button.danger{background:#ef4444}.tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:12px;font-weight:600}
-.tag.ok{background:#166534;color:#86efac}.tag.fail{background:#991b1b;color:#fca5a5}.tag.active{background:#1e40af;color:#93c5fd}
-.tag.warning{background:#92400e;color:#fde68a}.tag.dead{background:#7c3aed;color:#ddd6fe}
-</style></head><body>
-<h1>ðŸª· Buddhi Dwar</h1><p class="sub">AI API Gateway â€” Admin Dashboard</p>
-<div class="cards"><div class="card"><div class="num">${reqsToday}</div><div class="lbl">Requests Today</div></div></div>
-<nav>
-<a href="#" onclick="showTab('overview')" class="active-tab" id="nav-overview">Overview</a>
-<a href="#" onclick="showTab('keys')" id="nav-keys">API Keys</a>
-<a href="#" onclick="showTab('gateway')" id="nav-gateway">Gateway Keys</a>
-<a href="#" onclick="showTab('strategy')" id="nav-strategy">Strategy</a>
-<a href="#" onclick="showTab('logs')" id="nav-logs">Logs</a>
-<a href="#" onclick="showTab('analytics')" id="nav-analytics">Analytics</a>
-<a href="#" onclick="showTab('settings')" id="nav-settings">Settings</a>
-</nav>
-
-<section id="tab-overview" class="active"><h2>Overview</h2><pre id="overview-data">Loading...</pre></section>
-<section id="tab-keys"><h2>API Keys</h2><div id="keys-data">Loading...</div></section>
-<section id="tab-gateway"><h2>Gateway Keys</h2><div id="gw-data">Loading...</div></section>
-<section id="tab-strategy"><h2>Routing Strategy</h2><div id="strategy-data">Loading...</div></section>
-<section id="tab-logs"><h2>Recent Logs</h2><pre id="logs-data">Loading...</pre></section>
-<section id="tab-analytics"><h2>Analytics</h2><pre id="analytics-data">Loading...</pre></section>
-<section id="tab-settings"><h2>Settings</h2><pre id="settings-data">Loading...</pre></section>
-
-<script>
-const ADMIN_PW = "${ADMIN_PASSWORD}";
-function api(path, opts){return fetch('/admin/api'+path,{headers:{'Cookie':'bfadmin='+ADMIN_PW,...(opts||{}).headers},...(opts||{})}).then(r=>r.json())}
-function showTab(name){document.querySelectorAll('section').forEach(s=>s.classList.remove('active'));document.querySelectorAll('nav a').forEach(a=>a.style.background='');const el=document.getElementById('tab-'+name);if(el)el.classList.add('active');const nav=document.getElementById('nav-'+name);if(nav)nav.style.background='#334155';}
-
-async function loadOverview(){const s=await api('/stats');document.getElementById('overview-data').textContent=JSON.stringify(s,null,2)}
-async function loadKeys(){const k=await api('/keys');let h='<table><tr><th>Provider</th><th>ID</th><th>Label</th><th>Status</th><th>CB</th><th>Actions</th></tr>';
-for(const[prov,keys]of Object.entries(k)){for(const key of keys){const s=await api('/test-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pname:prov,id:key.id})});const st=s.ok?'ok':'fail';h+='<tr><td>'+prov+'</td><td style="font-size:12px">'+key.id+'</td><td>'+(key.label||'')+'</td><td><span class="tag '+(st==='ok'?'ok':'fail')+'">'+st+'</span></td><td>-</td><td><button onclick="deleteKey(\\''+prov+'\\',\\''+key.id+'\\')" class="danger">Del</button></td></tr>'}}
-h+='</table>';document.getElementById('keys-data').innerHTML=h}
-async function deleteKey(p,id){if(!confirm('Delete key?'))return;await api('/keys',{method:'DELETE',body:JSON.stringify({pname:p,id:id})});loadKeys()}
-
-async function loadGw(){const g=await api('/gateway-keys');let h='<table><tr><th>Word</th><th>Provider</th><th>Model</th><th>Enabled</th><th>Usage</th><th>Actions</th></tr>';
-for(const gw of g){h+='<tr><td>'+gw.word+'</td><td>'+(gw.provider||'')+'</td><td>'+(gw.model||'')+'</td><td>'+(gw.enabled?'âœ…':'âŒ')+'</td><td>'+(gw.usage||0)+'</td><td><button onclick="toggleGw(\\''+gw.word+'\\','+!gw.enabled+')" class="'+(gw.enabled?'danger':'')+'">'+(gw.enabled?'Disable':'Enable')+'</button> <button onclick="deleteGw(\\''+gw.word+'\\')" class="danger">Del</button></td></tr>'}
-h+='</table>';document.getElementById('gw-data').innerHTML=h}
-async function toggleGw(w,e){await api('/gateway-keys',{method:'PATCH',body:JSON.stringify({word:w,enabled:e})});loadGw()}
-async function deleteGw(w){if(!confirm('Delete gateway key?'))return;await api('/gateway-keys',{method:'DELETE',body:JSON.stringify({word:w})});loadGw()}
-
-async function loadStrategy(){const s=await api('/strategy');document.getElementById('strategy-data').textContent=JSON.stringify(s,null,2)}
-async function loadLogs(){const l=await api('/logs');document.getElementById('logs-data').textContent=JSON.stringify(l,null,2)}
-async function loadAnalytics(){const a=await api('/analytics?days=7');document.getElementById('analytics-data').textContent=JSON.stringify(a,null,2)}
-async function loadSettings(){const c=await api('/cache');document.getElementById('settings-data').textContent=JSON.stringify(c,null,2)}
-
-loadOverview();loadKeys();loadGw();loadStrategy();loadLogs();loadAnalytics();loadSettings();
-</script></body></html>`;
-    return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
-  }
-
   return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
 }
 
@@ -677,11 +607,19 @@ async function handleCron() {
 export default {
   async fetch(req: Request, env: Env): Promise<Response> {
     _BF = env.BF;
+    _ASSETS = env.ASSETS as Fetcher;
     _WEBHOOK_URL = env.WEBHOOK_URL || "";
     const url = new URL(req.url);
     const path = url.pathname;
     if (path.match(/^\/(v1\/)?chat\/completions$/)) return handleProxy(req);
     if (path.match(/^\/(v1\/)?models$/)) return handleModels();
+    if (path === "/admin" || path === "/admin/") {
+      if (_ASSETS) return _ASSETS.fetch("https://fake.host/admin.html");
+      const today = getToday();
+      const reqsToday = await getStat(today);
+      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>BD Admin</title></head><body><h1>BD Admin</h1><p>Assets not available. Req today: ${reqsToday}</p></body></html>`;
+      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
+    }
     if (path.startsWith("/admin")) return handleAdminApi(req, path);
     return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
   },
