@@ -315,7 +315,7 @@ async function handleProxy(req: Request): Promise<Response> {
       const ke = selected.key;
       const h = await getHealth(p.name, ke.id);
       try {
-        const targetUrl = p.baseUrl + (p.type === "openai" ? "/chat/completions" : "");
+        const targetUrl = p.baseUrl + (p.type === "openai" ? "/v1/chat/completions" : "");
         const hdrs: any = { "Content-Type": "application/json" };
         if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
         const resp = await fetch(targetUrl, { method: "POST", headers: hdrs, body: JSON.stringify(body) });
@@ -555,7 +555,7 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       const hdrs: any = { "Content-Type": "application/json" };
       if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
       const testBody = { model: p.models[0], messages: [{ role: "user", content: "ping" }], max_tokens: 1 };
-      const resp = await fetch(p.baseUrl + "/chat/completions", { method: "POST", headers: hdrs, body: JSON.stringify(testBody) });
+      const resp = await fetch(p.baseUrl + "/v1/chat/completions", { method: "POST", headers: hdrs, body: JSON.stringify(testBody) });
       const h = await getHealth(pname, ke.id);
       if (resp.ok) {
         h.status = "active"; h.lastCheck = Date.now(); h.consecutiveFailDays = 0; h.lastError = "";
@@ -583,7 +583,7 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
           const hdrs: any = { "Content-Type": "application/json" };
           if (p.type === "openai") hdrs["Authorization"] = "Bearer " + k.apiKey;
           const testBody = { model: p.models[0], messages: [{ role: "user", content: "ping" }], max_tokens: 1 };
-          const resp = await fetch(p.baseUrl + "/chat/completions", { method: "POST", headers: hdrs, body: JSON.stringify(testBody) });
+          const resp = await fetch(p.baseUrl + "/v1/chat/completions", { method: "POST", headers: hdrs, body: JSON.stringify(testBody) });
           results.push({ provider: p.name, keyId: k.id, label: k.label, status: resp.ok ? "ok" : "fail", httpStatus: resp.status, cbState: h.cbState });
         } catch (e: any) {
           results.push({ provider: p.name, keyId: k.id, label: k.label, status: "error", error: e.message, cbState: h.cbState });
