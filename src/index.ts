@@ -285,11 +285,11 @@ async function handleProxy(req: Request): Promise<Response> {
   try {
     const key = getBearer(req);
     if (!key) return new Response(JSON.stringify({ error: "missing auth" }), { status: 401, headers: { "content-type": "application/json" } });
-    if (key !== _MASTER_KEY) {
+    if (key !== __MASTER_KEY) {
       const gw = await getGwKey(key);
       if (!gw || !gw.enabled) return new Response(JSON.stringify({ error: "invalid gateway key" }), { status: 403, headers: { "content-type": "application/json" } });
     }
-    const rlCfg = key !== _MASTER_KEY ? await getRateLimit(key) : await getRateLimit();
+    const rlCfg = key !== __MASTER_KEY ? await getRateLimit(key) : await getRateLimit();
     const rl = await checkRateLimit(key, rlCfg);
     if (!rl.allowed) {
       return new Response(JSON.stringify({ error: "rate limit exceeded", retryAfterMs: rl.resetMs }), { status: 429, headers: { "content-type": "application/json", "Retry-After": String(Math.ceil(rl.resetMs / 1000)), "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": String(rl.resetMs) } });

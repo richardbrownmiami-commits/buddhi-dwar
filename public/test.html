@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>BD Gateway Test</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#0d1117;color:#e6edf3;min-height:100vh;display:flex;align-items:center;justify-content:center}
+.container{max-width:700px;width:100%;margin:20px;background:#161b22;border-radius:12px;padding:24px;box-shadow:0 8px 32px rgba(0,0,0,.4)}
+h1{font-size:20px;margin-bottom:20px;display:flex;align-items:center;gap:10px}
+h1 span{font-size:24px}
+.row{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap}
+.row label{font-size:13px;color:#8b949e;width:100%;margin-bottom:2px}
+.row input,.row select{flex:1;min-width:140px;padding:10px 12px;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#e6edf3;font-size:14px}
+.row input:focus,.row select:focus{outline:none;border-color:#58a6ff}
+#chat-box{background:#0d1117;border:1px solid #30363d;border-radius:8px;padding:12px;height:350px;overflow-y:auto;margin-bottom:12px;font-size:14px;line-height:1.5;white-space:pre-wrap}
+.msg{margin-bottom:10px;padding:10px 14px;border-radius:10px;max-width:85%}
+.user{background:#1f6feb22;border:1px solid #1f6feb44;margin-left:auto}
+.assistant{background:#23863622;border:1px solid #23863644}
+.error{background:#da363322;border:1px solid #da363344}
+.msg strong{font-size:11px;color:#8b949e;display:block;margin-bottom:4px}
+.input-row{display:flex;gap:8px}
+.input-row input{flex:1;padding:10px 12px;background:#0d1117;border:1px solid #30363d;border-radius:8px;color:#e6edf3;font-size:14px}
+.input-row input:focus{outline:none;border-color:#58a6ff}
+.input-row button{padding:10px 20px;background:#238636;border:none;border-radius:8px;color:#fff;font-size:14px;cursor:pointer;font-weight:600}
+.input-row button:hover{background:#2ea043}
+.input-row button:disabled{opacity:.5;cursor:default}
+.status{font-size:12px;color:#8b949e;margin-top:10px;text-align:center;min-height:18px}
+select option{background:#161b22;color:#e6edf3}
+</style>
+</head>
+<body>
+<div class="container">
+<h1><span>ðŸ§ª</span> BD Gateway Test</h1>
+<div class="row">
+  <label>API Key</label>
+  <input id="api-key" value="lfrvr5fl-aecel39x-oz33z4ov-lzs2f26l" placeholder="gateway key">
+</div>
+<div class="row">
+  <label>Model</label>
+  <select id="model">
+    <option>gpt-4o</option><option>gpt-4o-mini</option><option>gpt-4-turbo</option><option>claude-3-5-sonnet</option><option>claude-3-opus</option><option>gemini-2.0-flash</option><option>gemini-2.0-pro</option><option>deepseek-chat</option><option>llama-3.3-70b</option><option>mistral-large</option>
+  </select>
+</div>
+<div id="chat-box"></div>
+<div class="input-row">
+  <input id="msg-input" placeholder="Type a message..." onkeydown="if(event.key==='Enter')send()">
+  <button id="send-btn" onclick="send()">Send</button>
+</div>
+<div class="status" id="status"></div>
+</div>
+<script>
+const modelsUrl = 'https://buddhi-dwar.richard-brown-miami.workers.dev/v1/models';
+const chatUrl = 'https://buddhi-dwar.richard-brown-miami.workers.dev/v1/chat/completions';
+
+let messages = [];
+
+async function send() {
+  const key = document.getElementById('api-key').value.trim();
+  const model = document.getElementById('model').value;
+  const input = document.getElementById('msg-input');
+  const txt = input.value.trim();
+  if (!txt || !key) return;
+
+  const box = document.getElementById('chat-box');
+  const status = document.getElementById('status');
+  const btn = document.getElementById('send-btn');
+
+  box.innerHTML += '<div class="msg user"><strong>You</strong>' + escapeHtml(txt) + '</div>';
+  box.scrollTop = box.scrollHeight;
+  input.value = '';
+  btn.disabled = true;
+  status.textContent = 'Sending...';
+
+  messages.push({ role: 'user', content: txt });
+
+  let content = '';
+  const respDiv = document.createElement('div');
+  respDiv.className = 'msg assistant';
+  respDiv.innerHTML = '<strong>Assistant</strong>';
+  box.appendChild(respDiv);
+  const contentSpan = document.createElement('span');
+  respDiv.appendChild(contentSpan);
+
+  try {
+    const res = await fetch(chatUrl, {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, messages, stream: true })
+    });
+
+    if (!res.ok) {
+      const err = await res.text();
+      respDiv.className = 'msg error';
+      respDiv.innerHTML = '<strong>Error ' + res.status + '</strong>' + escapeHtml(err.slice(0, 300));
+      status.textContent = 'Failed';
+      btn.disabled = false;
+      return;
+    }
+
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
+
+      for (const line of lines) {
+        if (!line.startsWith('data: ')) continue;
+        const data = line.slice(6).trim();
+        if (data === '[DONE]') break;
+        try {
+          const chunk = JSON.parse(data);
+          const delta = chunk.choices?.[0]?.delta?.content || '';
+          content += delta;
+          contentSpan.textContent = content;
+          box.scrollTop = box.scrollHeight;
+        } catch { }
+      }
+    }
+
+    status.textContent = 'Done (' + (content.length || 0) + ' chars)';
+    messages.push({ role: 'assistant', content });
+  } catch (e) {
+    respDiv.className = 'msg error';
+    respDiv.innerHTML = '<strong>Error</strong>' + escapeHtml(e.message);
+    status.textContent = 'Connection error';
+  }
+
+  btn.disabled = false;
+}
+
+function escapeHtml(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+</script>
+</body>
+</html>
