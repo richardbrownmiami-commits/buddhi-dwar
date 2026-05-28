@@ -166,6 +166,8 @@ const PROVIDERS = [
   { name: "groq", baseUrl: "https://api.groq.com/openai", type: "openai", models: ["llama-3.3-70b", "llama-3.1-8b", "mixtral-8x7b", "deepseek-r1-distill"] },
   { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-large", "mistral-small", "codestral"] },
   { name: "openrouter", baseUrl: "https://openrouter.ai/api", type: "openai", models: ["anthropic/claude-3.5-sonnet", "openai/gpt-4o", "google/gemini-2.0-flash", "deepseek/deepseek-r1", "meta-llama/llama-3.3-70b"] },
+  { name: "together", baseUrl: "https://api.together.xyz", type: "openai", models: ["meta-llama/Llama-3.3-70B", "mistralai/Mixtral-8x7B", "deepseek-ai/DeepSeek-R1"] },
+  { name: "cohere", baseUrl: "https://api.cohere.com", type: "openai", models: ["command-r-plus", "command-r", "command"] },
 ];
 
 /* â”€â”€ Token Counting & Pricing â”€â”€ */
