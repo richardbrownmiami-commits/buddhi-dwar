@@ -396,7 +396,15 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
   if (path === "/admin/api/keys") {
     if (req.method === "GET") {
       const result: any = {};
-      for (const p of PROVIDERS) result[p.name] = await getKeys(p.name);
+      const list = await _BF.list({ prefix: "prov:", limit: 200 });
+      const seen = new Set<string>();
+      for (const k of list.keys) {
+        const m = k.name.match(/^prov:([^:]+):keys$/);
+        if (m && !seen.has(m[1])) { seen.add(m[1]); result[m[1]] = await getKeys(m[1]); }
+      }
+      for (const p of PROVIDERS) {
+        if (!seen.has(p.name)) { result[p.name] = await getKeys(p.name); seen.add(p.name); }
+      }
       return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
     }
     if (req.method === "POST") {
