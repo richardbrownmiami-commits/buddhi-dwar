@@ -614,7 +614,14 @@ export default {
     if (path.match(/^\/(v1\/)?chat\/completions$/)) return handleProxy(req);
     if (path.match(/^\/(v1\/)?models$/)) return handleModels();
     if (path === "/admin" || path === "/admin/") {
-      if (_ASSETS) return _ASSETS.fetch("https://fake.host/admin.html");
+      if (_ASSETS) {
+        const resp = await _ASSETS.fetch("https://fake.host/admin.html");
+        const headers = new Headers(resp.headers);
+        if (!headers.get("content-type")?.includes("charset")) {
+          headers.set("content-type", "text/html; charset=utf-8");
+        }
+        return new Response(resp.body, { status: resp.status, headers });
+      }
       const today = getToday();
       const reqsToday = await getStat(today);
       const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>BD Admin</title></head><body><h1>BD Admin</h1><p>Assets not available. Req today: ${reqsToday}</p></body></html>`;

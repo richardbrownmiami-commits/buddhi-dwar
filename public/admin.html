@@ -45,20 +45,26 @@ pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13
 .toast.error{background:#991b1b;color:#fca5a5;border:1px solid #ef4444}
 @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-@media(max-width:768px){.sidebar{width:60px}.sidebar h1,.sidebar a span{display:none}.main{padding:16px}.grid-2{grid-template-columns:1fr}}
+.ico{display:inline-block;width:18px;height:18px;border-radius:4px;flex-shrink:0}
+.ico-overview{background:#38bdf8}.ico-keys{background:#f59e0b}.ico-gateway{background:#a78bfa}
+.ico-strategy{background:#34d399}.ico-logs{background:#f87171}.ico-analytics{background:#fb923c}
+.ico-settings{background:#e2e8f0}.ico-health{background:#f472b6}
+.pagination{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:#94a3b8}
+.pagination button{padding:4px 12px;font-size:12px}
+@media(max-width:768px){.sidebar{width:48px}.sidebar h1,.sidebar a span:last-child{display:none}.main{padding:16px}.grid-2{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
 <div class="sidebar">
-<h1>ðŸª· BD</h1>
-<a onclick="showTab('overview')" id="nav-overview" class="active"><span>ðŸ“Š</span><span>Overview</span></a>
-<a onclick="showTab('keys')" id="nav-keys"><span>ðŸ”‘</span><span>API Keys</span></a>
-<a onclick="showTab('gateway')" id="nav-gateway"><span>ðŸšª</span><span>Gateway Keys</span></a>
-<a onclick="showTab('strategy')" id="nav-strategy"><span>ðŸŽ¯</span><span>Strategy</span></a>
-<a onclick="showTab('logs')" id="nav-logs"><span>ðŸ“‹</span><span>Logs</span></a>
-<a onclick="showTab('analytics')" id="nav-analytics"><span>ðŸ“ˆ</span><span>Analytics</span></a>
-<a onclick="showTab('settings')" id="nav-settings"><span>âš™ï¸</span><span>Settings</span></a>
-<a onclick="showTab('health')" id="nav-health"><span>â¤ï¸</span><span>Health Check</span></a>
+<h1>BD</h1>
+<a onclick="showTab('overview')" id="nav-overview" class="active"><span class="ico ico-overview"></span><span>Overview</span></a>
+<a onclick="showTab('keys')" id="nav-keys"><span class="ico ico-keys"></span><span>API Keys</span></a>
+<a onclick="showTab('gateway')" id="nav-gateway"><span class="ico ico-gateway"></span><span>Gateway Keys</span></a>
+<a onclick="showTab('strategy')" id="nav-strategy"><span class="ico ico-strategy"></span><span>Strategy</span></a>
+<a onclick="showTab('logs')" id="nav-logs"><span class="ico ico-logs"></span><span>Logs</span></a>
+<a onclick="showTab('analytics')" id="nav-analytics"><span class="ico ico-analytics"></span><span>Analytics</span></a>
+<a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings"></span><span>Settings</span></a>
+<a onclick="showTab('health')" id="nav-health"><span class="ico ico-health"></span><span>Health Check</span></a>
 </div>
 <div class="main" id="main-content"></div>
 <script>
@@ -193,13 +199,27 @@ async function updateStr() {
   await api('/strategy', { method: 'POST', body: JSON.stringify({ pname, strategy }) });
   showToast('Updated', 'success'); renderStrategy();
 }
+let _logPage = 0; const _logPageSize = 25; let _allLogs = [];
 async function renderLogs() {
-  const l = await api('/logs');
-  if(!Array.isArray(l)||l.length===0){setContent('<p>No logs</p>');return}
-  let rows = l.slice(0,100).map(e => '<tr><td style="color:#94a3b8;font-size:12px">' + (e.ts ? new Date(e.ts).toLocaleString() : (e.evictedAt ? new Date(e.evictedAt).toLocaleString() : 'â€”')) + '</td>' +
-    '<td>' + (e.provider||'') + '</td><td>' + (e.keyId||'') + '</td><td>' + (e.reason||e.error||e.message||'') + '</td></tr>').join('');
-  setContent('<table><thead><tr><th>Time</th><th>Provider</th><th>Key</th><th>Message</th></tr></thead><tbody>' + rows + '</tbody></table>');
+  _logPage = 0;
+  _allLogs = await api('/logs');
+  if(!Array.isArray(_allLogs)||_allLogs.length===0){setContent('<p>No logs</p>');return}
+  renderLogPage();
 }
+function renderLogPage() {
+  const start = _logPage * _logPageSize;
+  const page = _allLogs.slice(start, start + _logPageSize);
+  const rows = page.map(e => '<tr><td style="color:#94a3b8;font-size:12px">' + (e.ts ? new Date(e.ts).toLocaleString() : (e.evictedAt ? new Date(e.evictedAt).toLocaleString() : 'â€”')) + '</td>' +
+    '<td>' + (e.provider||'') + '</td><td>' + (e.keyId||'') + '</td><td>' + (e.reason||e.error||e.message||'') + '</td></tr>').join('');
+  const total = _allLogs.length;
+  const maxPage = Math.ceil(total / _logPageSize) - 1;
+  setContent('<table><thead><tr><th>Time</th><th>Provider</th><th>Key</th><th>Message</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div class="pagination"><button onclick="logPrev()" ' + (_logPage<=0?'disabled':'') + '>Prev</button>' +
+    '<span>Page ' + (_logPage+1) + ' of ' + (maxPage+1) + ' (' + total + ' total)</span>' +
+    '<button onclick="logNext()" ' + (_logPage>=maxPage?'disabled':'') + '>Next</button></div>');
+}
+function logPrev() { if(_logPage>0){_logPage--;renderLogPage()} }
+function logNext() { const m = Math.ceil(_allLogs.length/_logPageSize)-1; if(_logPage<m){_logPage++;renderLogPage()} }
 async function renderAnalytics() {
   const a = await api('/analytics?days=30');
   if(!Array.isArray(a)||a.length===0){setContent('<p>No analytics data</p>');return}
