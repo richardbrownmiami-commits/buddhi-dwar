@@ -731,6 +731,9 @@ export default {
         if (!headers.get("content-type")?.includes("charset")) {
           headers.set("content-type", "text/html; charset=utf-8");
         }
+        headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
+        headers.set("Pragma", "no-cache");
+        headers.set("Expires", "0");
         return new Response(resp.body, { status: resp.status, headers });
       }
       const today = getToday();
