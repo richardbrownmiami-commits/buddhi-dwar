@@ -156,12 +156,13 @@ async function renderKeys() {
   let rows = '';
   for (const [pname, keys] of Object.entries(raw)) {
     for (const k of keys) {
+      const ms = (k.models||[]).slice(0,3).join(', ');
       rows += '<tr><td>' + pname + '</td><td style="font-size:11px;color:#94a3b8">' + (k.label||'') + '</td>' +
         '<td><code style="font-size:11px;color:#94a3b8">' + (k.apiKey||'').slice(0,8) + '...</code></td>' +
         '<td><span class="tag warning" id="st-' + k.id + '">pending</span></td>' +
+        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + (ms || 'â€”') + '</td>' +
         '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : 'â€”') + '</td>' +
         '<td><button class="primary" onclick="testKey(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 8px;font-size:11px">Test</button> ' +
-        '<button class="secondary" onclick="listModels(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 8px;font-size:11px">Models</button> ' +
         '<button class="danger" onclick="deleteKey(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 8px;font-size:11px">Del</button></td></tr>';
     }
   }
@@ -186,7 +187,7 @@ async function renderKeys() {
         <a href="https://openrouter.ai/keys" target="_blank" style="color:#38bdf8">OpenRouter openrouter.ai</a>
       </div>
     </details>
-    <table><thead><tr><th>Provider</th><th>Label</th><th>Key</th><th>Status</th><th>Added</th><th></th></tr></thead>
+    <table><thead><tr><th>Provider</th><th>Label</th><th>Key</th><th>Status</th><th>Models</th><th>Added</th><th></th></tr></thead>
     <tbody>' + rows + '</tbody></table>
   `);
 }
@@ -197,19 +198,14 @@ async function testKey(pname, id) {
   const st = h.ok ? 'ok' : 'fail';
   if (el) el.className = 'tag ' + st; el.innerHTML = st;
 }
-async function listModels(pname, id) {
-  const r = await api('/list-models', { method: 'POST', body: JSON.stringify({ pname, id }) });
-  if (!r.ok) { showToast('Error: ' + (r.error || 'unknown'), 'error'); return; }
-  showToast(pname + ': ' + (r.models || []).slice(0,20).join(', ') + (r.models.length > 20 ? '...' : ''), 'success');
-}
 async function deleteKey(pname, id) { if (!confirm('Delete key?')) return; await api('/keys', { method: 'DELETE', body: JSON.stringify({ pname, id }) }); renderKeys(); }
 async function addKey() {
   const pname = document.getElementById('kp-provider').value;
   const apiKey = document.getElementById('kp-key').value;
   const label = document.getElementById('kp-label').value || (pname + '_' + Date.now());
-  if (!apiKey) { showToast('Key required', 'error'); return; }
+  if (!apiKey) { showToast('Enter API key', 'error'); return; }
   const r = await api('/keys', { method: 'POST', body: JSON.stringify({ pname, apiKey, label }) });
-  if (r.ok) { showToast('Added', 'success'); renderKeys(); }
+  if (r.ok) { showToast('Added â€” ' + (r.models||[]).length + ' models detected', 'success'); renderKeys(); }
   else { showToast(r.error || 'Failed', 'error'); }
 }
 async function renderGateway() {

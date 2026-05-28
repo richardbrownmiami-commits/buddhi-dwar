@@ -6,7 +6,7 @@ let _ASSETS: Fetcher;
 let _WEBHOOK_URL = "";
 let __MASTER_KEY = "bf-master-kun-2026";
 
-interface KeyEntry { id: string; apiKey: string; label: string; addedAt: number; }
+interface KeyEntry { id: string; apiKey: string; label: string; addedAt: number; models?: string[]; }
 type CBState = "closed" | "open" | "half-open";
 interface HealthEntry { status: "active" | "warming" | "dead" | "expired"; cbState: CBState; lastCheck: number; consecutiveFailDays: number; consecutiveFailures: number; lastError: string; lastUsed: number; successCount: number; failCount: number; avgResponseTime: number; lastResponseTime: number; }
 interface GatewayKey { word: string; label: string; createdAt: number; enabled: boolean; usage: number; }
@@ -413,9 +413,19 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       if (!pname || !apiKey) return new Response(JSON.stringify({ error: "provider and apiKey required" }), { status: 400, headers: { "content-type": "application/json" } });
       const keys = await getKeys(pname);
       const id = Date.now().toString(36);
-      keys.push({ id, apiKey, label: label || "key-" + keys.length, addedAt: Date.now() });
+      const p = PROVIDERS.find((pr: any) => pr.name === pname);
+      let models: string[] = [];
+      if (p) {
+        try {
+          const hdrs: any = {};
+          if (p.type === "openai") hdrs["Authorization"] = "Bearer " + apiKey;
+          const mr = await fetch(p.baseUrl + "/v1/models", { headers: hdrs });
+          if (mr.ok) { const md = await mr.json() as any; models = (md.data || []).map((m: any) => m.id).slice(0, 30); }
+        } catch { /* silent */ }
+      }
+      keys.push({ id, apiKey, label: label || "key-" + keys.length, addedAt: Date.now(), models });
       await setKeys(pname, keys);
-      return new Response(JSON.stringify({ ok: true, id }), { headers: { "content-type": "application/json" } });
+      return new Response(JSON.stringify({ ok: true, id, models }), { headers: { "content-type": "application/json" } });
     }
     if (req.method === "DELETE") {
       const body = await req.json() as any;
