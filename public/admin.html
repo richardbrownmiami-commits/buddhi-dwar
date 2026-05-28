@@ -75,7 +75,8 @@ pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13
 <a onclick="showTab('keys')" id="nav-keys"><span class="ico ico-keys"></span><span>API Keys</span></a>
 <a onclick="showTab('gateway')" id="nav-gateway"><span class="ico ico-gateway"></span><span>Gateway Keys</span></a>
 <a onclick="showTab('strategy')" id="nav-strategy"><span class="ico ico-strategy"></span><span>Strategy</span></a>
-<a onclick="showTab('logs')" id="nav-logs"><span class="ico ico-logs"></span><span>Logs</span></a>
+<a onclick="showTab('logs')" id="nav-logs"><span class="ico ico-logs"></span><span>Error Logs</span></a>
+<a onclick="showTab('req-logs')" id="nav-req-logs"><span class="ico ico-logs"></span><span>Request Logs</span></a>
 <a onclick="showTab('analytics')" id="nav-analytics"><span class="ico ico-analytics"></span><span>Analytics</span></a>
 <a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings"></span><span>Settings</span></a>
 <a onclick="showTab('health')" id="nav-health"><span class="ico ico-health"></span><span>Health Check</span></a>
@@ -120,6 +121,7 @@ const PAGES = {
   gateway: { title: 'Gateway Keys', render: renderGateway },
   strategy: { title: 'Routing Strategy', render: renderStrategy },
   logs: { title: 'Error & Eviction Logs', render: renderLogs },
+  'req-logs': { title: 'Request Logs', render: renderReqLogs },
   analytics: { title: 'Analytics', render: renderAnalytics },
   settings: { title: 'Settings', render: renderSettings },
   health: { title: 'Health Check', render: renderHealth },
@@ -160,10 +162,11 @@ async function renderKeys() {
       rows += '<tr><td>' + pname + '</td><td style="font-size:11px;color:#94a3b8">' + (k.label||'') + '</td>' +
         '<td><code style="font-size:11px;color:#94a3b8">' + (k.apiKey||'').slice(0,8) + '...</code></td>' +
         '<td><span class="tag warning" id="st-' + k.id + '">pending</span></td>' +
-        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + (ms || 'â€”') + '</td>' +
-        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : 'â€”') + '</td>' +
-        '<td><button class="primary" onclick="testKey(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 8px;font-size:11px">Test</button> ' +
-        '<button class="danger" onclick="deleteKey(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 8px;font-size:11px">Del</button></td></tr>';
+        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + (ms || '—') + '</td>' +
+        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : '—') + '</td>' +
+'<td><button class="primary" onclick="testKey(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 8px;font-size:11px">Test</button> ' +
+'<button class="secondary" onclick="reDetectKey(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 8px;font-size:11px">Models</button> ' +
+'<button class="danger" onclick="deleteKey(\'' + pname + '\',\'' + k.id + '\')" style="padding:4px 8px;font-size:11px">Del</button></td></tr>';
     }
   }
   setContent(`
@@ -191,7 +194,12 @@ async function testKey(pname, id) {
   if (el) el.innerHTML = 'testing...';
   const h = await api('/test-key', { method: 'POST', body: JSON.stringify({ pname, id }) });
   const st = h.ok ? 'ok' : 'fail';
-  if (el) el.className = 'tag ' + st; el.innerHTML = st;
+  if (el) { el.className = 'tag ' + st; el.innerHTML = st; }
+}
+async function reDetectKey(pname, id) {
+  const r = await api('/redetect-models', { method: 'POST', body: JSON.stringify({ pname, id }) });
+  if (r.ok) { showToast('Models updated: ' + (r.models||[]).join(', '), 'success'); renderKeys(); }
+  else { showToast(r.error || 'Failed', 'error'); }
 }
 async function deleteKey(pname, id) { if (!confirm('Delete key?')) return; await api('/keys', { method: 'DELETE', body: JSON.stringify({ pname, id }) }); renderKeys(); }
 async function addKey() {
@@ -200,7 +208,7 @@ async function addKey() {
   const label = document.getElementById('kp-label').value || (pname + '_' + Date.now());
   if (!apiKey) { showToast('Enter API key', 'error'); return; }
   const r = await api('/keys', { method: 'POST', body: JSON.stringify({ pname, apiKey, label }) });
-  if (r.ok) { showToast('Added â€” ' + (r.models||[]).length + ' models detected', 'success'); renderKeys(); }
+  if (r.ok) { showToast('Key added successfully', 'success'); renderKeys(); }
   else { showToast(r.error || 'Failed', 'error'); }
 }
 async function renderGateway() {
@@ -266,24 +274,61 @@ async function renderLogs() {
   if(!Array.isArray(_allLogs)||_allLogs.length===0){setContent('<p>No logs</p>');return}
   renderLogPage();
 }
+function logTypeBadge(e) {
+  if (e.reason === 'evicted' || e.evictedAt) return '<span class="tag fail">evicted</span>';
+  if (e.reason === 'expired') return '<span class="tag warning">expired</span>';
+  if (e.error || e.message) return '<span class="tag fail">error</span>';
+  if (e.cbState) return '<span class="tag half-open">cb</span>';
+  return '<span class="tag ok">info</span>';
+}
 function renderLogPage() {
   const start = _logPage * _logPageSize;
   const page = _allLogs.slice(start, start + _logPageSize);
-  const rows = page.map(e => '<tr><td style="color:#94a3b8;font-size:12px">' + (e.ts ? new Date(e.ts).toLocaleString() : (e.evictedAt ? new Date(e.evictedAt).toLocaleString() : 'â€”')) + '</td>' +
-    '<td>' + (e.provider||'') + '</td><td>' + (e.keyId||'') + '</td><td>' + (e.reason||e.error||e.message||'') + '</td></tr>').join('');
+  const rows = page.map(e => '<tr><td style="color:#94a3b8;font-size:12px">' + (e.ts ? new Date(e.ts).toLocaleString() : (e.evictedAt ? new Date(e.evictedAt).toLocaleString() : '—')) + '</td>' +
+    '<td>' + logTypeBadge(e) + '</td><td>' + (e.provider||'') + '</td><td style="font-size:11px;color:#94a3b8">' + (e.keyId||'') + '</td><td>' + (e.reason||e.error||e.message||'') + '</td></tr>').join('');
   const total = _allLogs.length;
   const maxPage = Math.ceil(total / _logPageSize) - 1;
-  setContent('<table><thead><tr><th>Time</th><th>Provider</th><th>Key</th><th>Message</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+  setContent('<p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Eviction &amp; error log entries from KV</p><table><thead><tr><th>Time</th><th>Type</th><th>Provider</th><th>Key</th><th>Message</th></tr></thead><tbody>' + rows + '</tbody></table>' +
     '<div class="pagination"><button onclick="logPrev()" ' + (_logPage<=0?'disabled':'') + '>Prev</button>' +
     '<span>Page ' + (_logPage+1) + ' of ' + (maxPage+1) + ' (' + total + ' total)</span>' +
     '<button onclick="logNext()" ' + (_logPage>=maxPage?'disabled':'') + '>Next</button></div>');
 }
 function logPrev() { if(_logPage>0){_logPage--;renderLogPage()} }
 function logNext() { const m = Math.ceil(_allLogs.length/_logPageSize)-1; if(_logPage<m){_logPage++;renderLogPage()} }
+
+let _rlogPage = 0; const _rlogPageSize = 30; let _allReqLogs = [];
+async function renderReqLogs() {
+  _rlogPage = 0;
+  const date = document.getElementById('rlog-date')?.value || new Date().toISOString().slice(0,10);
+  _allReqLogs = await api('/request-logs?date=' + encodeURIComponent(date));
+  if(!Array.isArray(_allReqLogs)||_allReqLogs.length===0){setContent('<p>No request logs for ' + date + '</p>');return}
+  renderReqLogPage();
+}
+function renderReqLogPage() {
+  const start = _rlogPage * _rlogPageSize;
+  const page = _allReqLogs.slice(start, start + _rlogPageSize);
+  const rows = page.map(e => '<tr><td style="color:#94a3b8;font-size:11px">' + new Date(e.timestamp).toLocaleTimeString() + '</td>' +
+    '<td>' + (e.provider||'') + '</td><td style="font-size:11px;color:#94a3b8">' + (e.keyId||'').slice(0,8) + '</td>' +
+    '<td style="font-size:12px">' + (e.model||'') + '</td>' +
+    '<td><span class="tag ' + (e.status>=200&&e.status<300?'ok':'fail') + '">' + (e.status||'—') + '</span></td>' +
+    '<td>' + (e.latencyMs||'—') + 'ms</td>' +
+    '<td style="font-size:11px">' + (e.promptTokens||'—') + '/' + (e.completionTokens||'—') + '</td>' +
+    '<td style="font-size:11px;color:#fde68a">$' + ((e.cost||0).toFixed(6)) + '</td></tr>').join('');
+  const total = _allReqLogs.length;
+  const maxPage = Math.ceil(total / _rlogPageSize) - 1;
+  setContent('<div class="form-row"><div class="form-group"><label>Date</label><input id="rlog-date" type="date" value="' + new Date().toISOString().slice(0,10) + '"></div>' +
+    '<button class="primary" onclick="renderReqLogs()">Load</button></div>' +
+    '<table><thead><tr><th>Time</th><th>Provider</th><th>Key</th><th>Model</th><th>Status</th><th>Latency</th><th>Tokens(P/C)</th><th>Cost</th></tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div class="pagination"><button onclick="rlogPrev()" ' + (_rlogPage<=0?'disabled':'') + '>Prev</button>' +
+    '<span>Page ' + (_rlogPage+1) + ' of ' + (maxPage+1) + ' (' + total + ' total)</span>' +
+    '<button onclick="rlogNext()" ' + (_rlogPage>=maxPage?'disabled':'') + '>Next</button></div>');
+}
+function rlogPrev() { if(_rlogPage>0){_rlogPage--;renderReqLogPage()} }
+function rlogNext() { const m = Math.ceil(_allReqLogs.length/_rlogPageSize)-1; if(_rlogPage<m){_rlogPage++;renderReqLogPage()} }
 async function renderAnalytics() {
   const a = await api('/analytics?days=30');
   if(!Array.isArray(a)||a.length===0){setContent('<p>No analytics data</p>');return}
-  let rows = a.map(d => '<tr><td>' + (d.date||'â€”') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
+  let rows = a.map(d => '<tr><td>' + (d.date||'—') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
     '<td>' + (d.successes||0) + '</td><td>' + ((d.totalPromptTokens||0).toLocaleString()) + '</td>' +
     '<td>' + ((d.totalCompletionTokens||0).toLocaleString()) + '</td><td>$' + ((d.totalCost||0).toFixed(4)) + '</td></tr>').join('');
   let totalReq=0,totalFail=0,totalCost=0,totalPrompt=0,totalComp=0;
@@ -295,8 +340,13 @@ async function renderAnalytics() {
       <div class="card"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl">Cost (30d)</div></div>
       <div class="card"><div class="num">${(totalPrompt+totalComp).toLocaleString()}</div><div class="lbl">Tokens (30d)</div></div>
     </div>
+    <div style="margin-bottom:12px"><button class="secondary" onclick="exportAnalytics()">Export CSV</button></div>
     <table><thead><tr><th>Date</th><th>Req</th><th>Err</th><th>Success</th><th>Prompt Tok</th><th>Comp Tok</th><th>Cost</th></tr></thead><tbody>${rows}</tbody></table>
   `);
+}
+function exportAnalytics() {
+  window.open('/admin/api/analytics?days=30&format=csv', '_blank');
+}
 }
 async function renderSettings() {
   const s = await api('/cache');
@@ -323,7 +373,7 @@ async function renderHealth() {
     const ok = item.status === 'ok' ? 'ok' : 'fail';
     cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px">' + (item.provider||'') + ' / ' + (item.keyId||'').slice(0,8) + '</h3>' +
       '<p><span class="tag ' + ok + '">' + (item.status||'?') + '</span></p>' +
-      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'â€”') + ' | CB: ' + (item.cbState||'â€”') + '</p>' +
+      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'—') + ' | CB: ' + (item.cbState||'—') + '</p>' +
       (item.error ? '<pre style="font-size:11px;margin-top:4px">' + item.error + '</pre>' : '') + '</div>';
   }
   setContent('<div class="cards">' + (cards || '<p>No results</p>') + '</div>');
@@ -359,6 +409,15 @@ resp = requests.post(
     json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]}
 )
 print(resp.json())</pre>
+
+    <h2 style="margin-top:24px">Webhook Notifications</h2>
+    <p style="font-size:14px;color:#94a3b8">Set <code style="color:#fde68a">WEBHOOK_URL</code> in your Cloudflare Worker environment variables (e.g. Slack webhook URL). The gateway will POST JSON alerts for auth failures and circuit-breaker state changes.</p>
+    <pre style="font-size:13px">Example payload:
+POST &lt;WEBHOOK_URL&gt;
+{"event":"auth_failure","provider":"openai","keyId":"sk-...","status":401}</pre>
+
+    <h2 style="margin-top:24px">ADMIN_PASSWORD (Environment Variable)</h2>
+    <p style="font-size:14px;color:#94a3b8">Set <code style="color:#fde68a">ADMIN_PASSWORD</code> in your Cloudflare Worker env vars to override the default admin password (<code>2200</code>).</p>
 
     <h2 style="margin-top:24px">Supported Models</h2>
     <p style="font-size:14px;color:#94a3b8">Free-tier models: <b>Groq</b> (llama-3.3-70b-versatile), <b>Google</b> (gemini-2.0-flash), <b>Mistral</b> (mistral-small-latest), <b>OpenRouter</b> (free models).</p>

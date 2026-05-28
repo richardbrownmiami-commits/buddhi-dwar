@@ -5,6 +5,7 @@ let _BF: KVNamespace;
 let _ASSETS: Fetcher;
 let _WEBHOOK_URL = "";
 let __MASTER_KEY = "bf-master-kun-2026";
+let _ADMIN_PW = "2200";
 
 interface KeyEntry { id: string; apiKey: string; label: string; addedAt: number; models?: string[]; }
 type CBState = "closed" | "open" | "half-open";
@@ -15,7 +16,7 @@ interface ReqLog { model: string; provider: string; keyId: string; status: numbe
 interface DailyAnalytics { date: string; requests: number; successes: number; failures: number; totalLatencyMs: number; totalPromptTokens: number; totalCompletionTokens: number; totalCost: number; providerStats: Record<string, { requests: number; successes: number; failures: number; totalLatencyMs: number; totalPromptTokens: number; totalCompletionTokens: number; totalCost: number }>; }
 type Strategy = "round-robin" | "lowest-latency" | "least-loaded";
 
-/* â”€â”€ Rate Limiting â”€â”€ */
+/* ── Rate Limiting ── */
 interface RateLimitConfig { maxRequests: number; windowMs: number; }
 const DEFAULT_RATE_LIMIT: RateLimitConfig = { maxRequests: 60, windowMs: 60000 };
 
@@ -113,7 +114,7 @@ async function getRecentLogs(): Promise<any[]> {
 }
 function checkAdmin(req: Request): boolean {
   const c = req.headers.get("Cookie") || "";
-  return c.includes("bfadmin=" + ADMIN_PASSWORD);
+  return c.includes("bfadmin=" + _ADMIN_PW);
 }
 function getBearer(req: Request): string | null {
   const m = (req.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i);
@@ -160,12 +161,32 @@ async function sendWebhook(event: string, data: any) {
 
 const PROVIDERS = [
   { name: "groq", baseUrl: "https://api.groq.com/openai", type: "openai", models: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"] },
-  { name: "google", baseUrl: "https://generativelanguage.googleapis.com", type: "openai", models: ["gemini-2.0-flash"] },
+  { name: "google", baseUrl: "https://generativelanguage.googleapis.com", type: "google", models: ["gemini-2.0-flash"] },
   { name: "openrouter", baseUrl: "https://openrouter.ai/api", type: "openai", models: ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-v4-flash:free", "meta-llama/llama-3.2-3b-instruct:free"] },
   { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-small-latest"] },
 ];
 
-/* â”€â”€ Token Counting & Pricing â”€â”€ */
+/* ── Google Gemini Format ── */
+function oaiToGemini(body: any, model: string) {
+  const contents = (body.messages || []).filter((m: any) => m.role !== 'system').map((m: any) => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content || '' }] }));
+  const sys = (body.messages || []).find((m: any) => m.role === 'system');
+  const r: any = { contents };
+  if (sys) r.systemInstruction = { parts: [{ text: sys.content }] };
+  r.generationConfig = {};
+  if (body.max_tokens) r.generationConfig.maxOutputTokens = body.max_tokens;
+  if (body.temperature !== undefined) r.generationConfig.temperature = body.temperature;
+  if (body.top_p !== undefined) r.generationConfig.topP = body.top_p;
+  return r;
+}
+function geminiToOai(data: any, model: string) {
+  const choices = (data.candidates || []).map((c: any, i: number) => ({
+    index: i, message: { role: 'assistant', content: c.content?.parts?.[0]?.text || '' },
+    finish_reason: (c.finishReason || 'stop').toLowerCase()
+  }));
+  return { id: 'chatcmpl-' + Date.now(), object: 'chat.completion', created: Math.floor(Date.now() / 1000), model, choices, usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
+}
+
+/* ── Token Counting & Pricing ── */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-2.0-flash": { input: 0.1, output: 0.4 },
   "llama-3.3-70b": { input: 0.59, output: 0.79 }, "llama-3.1-8b": { input: 0.05, output: 0.08 },
@@ -183,7 +204,7 @@ function estimateCost(model: string, promptTokens: number, completionTokens: num
   return (promptTokens * p.input + completionTokens * p.output) / 1000000;
 }
 
-interface Env { BF: KVNamespace; WEBHOOK_URL?: string; ASSETS?: Fetcher; }
+interface Env { BF: KVNamespace; WEBHOOK_URL?: string; ASSETS?: Fetcher; ADMIN_PASSWORD?: string; }
 
 const CB_COOLDOWN_MS = 300000; // 5 min cooldown before half-open probe
 
@@ -232,7 +253,7 @@ async function selectKey(provider: string, keys: KeyEntry[], strategy: Strategy)
   return null;
 }
 
-/* â”€â”€ Streaming Timeout â”€â”€ */
+/* ── Streaming Timeout ── */
 function streamWithTimeout(readable: ReadableStream, timeoutMs: number = 60000): ReadableStream {
   const reader = readable.getReader();
   return new ReadableStream({
@@ -248,7 +269,7 @@ function streamWithTimeout(readable: ReadableStream, timeoutMs: number = 60000):
   });
 }
 
-/* â”€â”€ Response Caching â”€â”€ */
+/* ── Response Caching ── */
 interface CacheConfig { ttlSeconds: number; enabled: boolean; }
 const DEFAULT_CACHE: CacheConfig = { ttlSeconds: 300, enabled: false };
 async function getCacheCfg(): Promise<CacheConfig> {
@@ -306,17 +327,23 @@ async function handleProxy(req: Request): Promise<Response> {
       const ke = selected.key;
       const h = await getHealth(p.name, ke.id);
       try {
-        const targetUrl = p.baseUrl + (p.type === "openai" ? "/v1/chat/completions" : "");
+        const isGoogle = p.type === "google";
+        const targetUrl = isGoogle ? p.baseUrl + "/v1beta/models/" + model + ":generateContent" : p.baseUrl + (p.type === "openai" ? "/v1/chat/completions" : "");
         const hdrs: any = { "Content-Type": "application/json" };
-        if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
-        const resp = await fetch(targetUrl, { method: "POST", headers: hdrs, body: JSON.stringify(body) });
+        if (isGoogle) hdrs["x-goog-api-key"] = ke.apiKey;
+        else if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
+        const reqBody = isGoogle ? JSON.stringify(oaiToGemini(body, model)) : JSON.stringify(body);
+        const resp = await fetch(targetUrl, { method: "POST", headers: hdrs, body: reqBody });
         const latency = Date.now() - start;
         const promptText = JSON.stringify(body.messages || "");
         const promptTokens = estimateTokens(promptText);
         let completionTokens = 0;
         if (resp.ok) {
-          const clone = resp.clone();
-          try { const json = await clone.json() as any; completionTokens = json.usage?.completion_tokens || estimateTokens(JSON.stringify(json.choices?.[0]?.message?.content || "")); } catch { completionTokens = 0; }
+          if (isGoogle) {
+            try { const j = await resp.clone().json() as any; completionTokens = estimateTokens(j.candidates?.[0]?.content?.parts?.[0]?.text || ""); } catch { completionTokens = 0; }
+          } else {
+            try { const j = await resp.clone().json() as any; completionTokens = j.usage?.completion_tokens || estimateTokens(JSON.stringify(j.choices?.[0]?.message?.content || "")); } catch { completionTokens = 0; }
+          }
         }
         const cost = estimateCost(model, promptTokens, completionTokens);
         const rl: ReqLog = { model, provider: p.name, keyId: ke.id, status: resp.status, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens, cost };
@@ -336,6 +363,11 @@ async function handleProxy(req: Request): Promise<Response> {
           if (isStream) {
             const stream = streamWithTimeout(resp.body!, 60000);
             return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "Access-Control-Allow-Origin": "*" } });
+          }
+          if (isGoogle) {
+            const j = await resp.clone().json() as any;
+            const oai = geminiToOai(j, model);
+            return new Response(JSON.stringify(oai), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
           }
           return resp;
         }
@@ -533,12 +565,18 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
 
   if (path === "/admin/api/analytics") {
     const days = parseInt(url.searchParams.get("days") || "7");
+    const fmt = url.searchParams.get("format") || "json";
     const result: DailyAnalytics[] = [];
     for (let i = 0; i < days; i++) {
       const d = new Date(); d.setDate(d.getDate() - i);
       const key = "analytics:" + d.toISOString().slice(0, 10);
       const raw = await _BF.get(key, "json");
       if (raw) result.unshift(raw as any);
+    }
+    if (fmt === "csv") {
+      const header = "date,totalRequests,totalTokens,totalCost(USD),uniqueProviders,uniqueModels";
+      const rows = result.map((r: any) => `${r.date},${r.totalRequests||0},${r.totalTokens||0},${(r.totalCostUSD||0).toFixed(6)},${(r.uniqueProviders||[]).length},${(r.uniqueModels||[]).length}`);
+      return new Response(header + "\n" + rows.join("\n"), { headers: { "content-type": "text/csv", "Content-Disposition": "attachment; filename=analytics.csv" } });
     }
     return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
   }
@@ -554,9 +592,14 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     if (!p) return new Response(JSON.stringify({ error: "provider not found" }), { status: 404, headers: { "content-type": "application/json" } });
     try {
       const hdrs: any = { "Content-Type": "application/json" };
-      if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
-      const testBody = { model: p.models[0], messages: [{ role: "user", content: "ping" }], max_tokens: 1 };
-      const resp = await fetch(p.baseUrl + "/v1/chat/completions", { method: "POST", headers: hdrs, body: JSON.stringify(testBody) });
+      const isGoogle = p.type === "google";
+      if (isGoogle) hdrs["x-goog-api-key"] = ke.apiKey;
+      else if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
+      const testBody = isGoogle
+        ? { contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 1 } }
+        : { model: p.models[0], messages: [{ role: "user", content: "ping" }], max_tokens: 1 };
+      const url = isGoogle ? p.baseUrl + "/v1beta/models/" + p.models[0] + ":generateContent" : p.baseUrl + "/v1/chat/completions";
+      const resp = await fetch(url, { method: "POST", headers: hdrs, body: JSON.stringify(testBody) });
       const h = await getHealth(pname, ke.id);
       if (resp.ok) {
         h.status = "active"; h.lastCheck = Date.now(); h.consecutiveFailDays = 0; h.lastError = "";
@@ -585,11 +628,15 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     if (!p) return new Response(JSON.stringify({ error: "provider not found" }), { status: 404, headers: { "content-type": "application/json" } });
     try {
       const hdrs: any = {};
-      if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
-      const resp = await fetch(p.baseUrl + "/v1/models", { headers: hdrs });
+      const isGoogle = p.type === "google";
+      if (isGoogle) hdrs["x-goog-api-key"] = ke.apiKey;
+      else if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
+      const resp = isGoogle
+        ? await fetch(p.baseUrl + "/v1beta/models?key=" + ke.apiKey)
+        : await fetch(p.baseUrl + "/v1/models", { headers: hdrs });
       if (!resp.ok) return new Response(JSON.stringify({ error: "HTTP " + resp.status }), { status: 502, headers: { "content-type": "application/json" } });
       const data = await resp.json() as any;
-      const models = (data.data || []).map((m: any) => m.id);
+      const models = isGoogle ? (data.models || []).map((m: any) => m.name).filter((n: string) => n.includes("gemini")) : (data.data || []).map((m: any) => m.id);
       return new Response(JSON.stringify({ ok: true, models }), { headers: { "content-type": "application/json" } });
     } catch (e: any) {
       return new Response(JSON.stringify({ ok: false, error: e.message }), { headers: { "content-type": "application/json" } });
@@ -604,9 +651,14 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
         const h = await getHealth(p.name, k.id);
         try {
           const hdrs: any = { "Content-Type": "application/json" };
-          if (p.type === "openai") hdrs["Authorization"] = "Bearer " + k.apiKey;
-          const testBody = { model: p.models[0], messages: [{ role: "user", content: "ping" }], max_tokens: 1 };
-          const resp = await fetch(p.baseUrl + "/v1/chat/completions", { method: "POST", headers: hdrs, body: JSON.stringify(testBody) });
+          const isGoogle = p.type === "google";
+          if (isGoogle) hdrs["x-goog-api-key"] = k.apiKey;
+          else if (p.type === "openai") hdrs["Authorization"] = "Bearer " + k.apiKey;
+          const testBody = isGoogle
+            ? { contents: [{ role: "user", parts: [{ text: "ping" }] }], generationConfig: { maxOutputTokens: 1 } }
+            : { model: p.models[0], messages: [{ role: "user", content: "ping" }], max_tokens: 1 };
+          const url = isGoogle ? p.baseUrl + "/v1beta/models/" + p.models[0] + ":generateContent" : p.baseUrl + "/v1/chat/completions";
+          const resp = await fetch(url, { method: "POST", headers: hdrs, body: JSON.stringify(testBody) });
           results.push({ provider: p.name, keyId: k.id, label: k.label, status: resp.ok ? "ok" : "fail", httpStatus: resp.status, cbState: h.cbState });
         } catch (e: any) {
           results.push({ provider: p.name, keyId: k.id, label: k.label, status: "error", error: e.message, cbState: h.cbState });
@@ -614,6 +666,32 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       }
     }
     return new Response(JSON.stringify(results), { headers: { "content-type": "application/json" } });
+  }
+
+  if (path === "/admin/api/redetect-models") {
+    const { pname, id } = await req.json() as any;
+    if (!pname || !id) return new Response(JSON.stringify({ error: "provider and id required" }), { status: 400, headers: { "content-type": "application/json" } });
+    const keys = await getKeys(pname);
+    const ke = keys.find((k: any) => k.id === id);
+    if (!ke) return new Response(JSON.stringify({ error: "key not found" }), { status: 404, headers: { "content-type": "application/json" } });
+    const p = PROVIDERS.find((pr: any) => pr.name === pname);
+    if (!p) return new Response(JSON.stringify({ error: "provider not found" }), { status: 404, headers: { "content-type": "application/json" } });
+    try {
+      const hdrs: any = {};
+      const isGoogle = p.type === "google";
+      if (isGoogle) hdrs["x-goog-api-key"] = ke.apiKey;
+      else if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
+      const resp = isGoogle
+        ? await fetch(p.baseUrl + "/v1beta/models?key=" + ke.apiKey)
+        : await fetch(p.baseUrl + "/v1/models", { headers: hdrs });
+      if (!resp.ok) return new Response(JSON.stringify({ error: "HTTP " + resp.status }), { status: 502, headers: { "content-type": "application/json" } });
+      const data = await resp.json() as any;
+      const models = isGoogle ? (data.models || []).map((m: any) => m.name).filter((n: string) => n.includes("gemini")) : (data.data || []).map((m: any) => m.id);
+      p.models = models.slice(0, 10);
+      return new Response(JSON.stringify({ ok: true, models: p.models }), { headers: { "content-type": "application/json" } });
+    } catch (e: any) {
+      return new Response(JSON.stringify({ ok: false, error: e.message }), { headers: { "content-type": "application/json" } });
+    }
   }
 
   return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
@@ -641,6 +719,7 @@ export default {
     _BF = env.BF;
     _ASSETS = env.ASSETS as Fetcher;
     _WEBHOOK_URL = env.WEBHOOK_URL || "";
+    _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
     const url = new URL(req.url);
     const path = url.pathname;
     if (path.match(/^\/(v1\/)?chat\/completions$/)) return handleProxy(req);
@@ -665,6 +744,7 @@ export default {
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
     _BF = env.BF;
     _WEBHOOK_URL = env.WEBHOOK_URL || "";
+    _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
     await handleCron();
   },
 };
