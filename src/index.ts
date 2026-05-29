@@ -430,6 +430,38 @@ async function handleModels(): Promise<Response> {
   return new Response(JSON.stringify({ object: "list", data: all }), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
 }
 
+async function handleEmbeddings(req: Request): Promise<Response> {
+  const start = Date.now();
+  try {
+    const key = getBearer(req);
+    if (!key) return new Response(JSON.stringify({ error: "missing auth" }), { status: 401, headers: { "content-type": "application/json" } });
+    if (key !== __MASTER_KEY) {
+      const gw = await getGwKey(key);
+      if (!gw || !gw.enabled) return new Response(JSON.stringify({ error: "invalid gateway key" }), { status: 403, headers: { "content-type": "application/json" } });
+    }
+    const rl = await checkRateLimit(key, key !== __MASTER_KEY ? await getRateLimit(key) : await getRateLimit());
+    if (!rl.allowed) return new Response(JSON.stringify({ error: "rate limit exceeded" }), { status: 429, headers: { "content-type": "application/json" } });
+    const body = await req.json() as any;
+    const model = body.model || "";
+    if (!model) return new Response(JSON.stringify({ error: "model required" }), { status: 400, headers: { "content-type": "application/json" } });
+    const provs = (await getAllProviders()).filter((p: any) => p.type !== "google" && p.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase())));
+    for (const p of provs) {
+      const keys = await getKeys(p.name);
+      if (!keys.length) continue;
+      const selected = await selectKey(p.name, keys, await getStrategy(p.name));
+      if (!selected) continue;
+      const ke = selected.key;
+      const resp = await fetch(p.baseUrl + "/v1/embeddings", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ke.apiKey }, body: JSON.stringify({ ...body, model }) });
+      const rl: ReqLog = { model, provider: p.name, keyId: ke.id, status: resp.status, latencyMs: Date.now() - start, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 };
+      await updateAnalytics(rl); await trackKeyUsage(rl); await saveRateLimit(p.name, ke.id, resp);
+      if (resp.ok) return new Response(resp.body, { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+    }
+    return new Response(JSON.stringify({ error: "no provider available for embedding model: " + model }), { status: 502, headers: { "content-type": "application/json" } });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: "embedding error: " + e.message }), { status: 500, headers: { "content-type": "application/json" } });
+  }
+}
+
 async function handleAdminApi(req: Request, path: string): Promise<Response> {
   if (!checkAdmin(req)) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
   const url = new URL(req.url);
@@ -781,6 +813,7 @@ const app = new Hono();
 
 app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
 app.post("/chat/completions", async (c) => handleProxy(c.req));
+app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 
