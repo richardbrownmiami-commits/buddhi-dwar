@@ -1,4 +1,3 @@
-const ADMIN_PASSWORD = "2200";
 const DAY_MS = 86400000;
 const EVICT_DAYS = 5;
 let _BF: KVNamespace;
