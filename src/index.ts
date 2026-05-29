@@ -330,6 +330,7 @@ async function handleProxy(req: Request): Promise<Response> {
       if (cached) return new Response(cached, { headers: { "content-type": "application/json", "X-Cache": "HIT", "access-control-allow-origin": "*" } });
     }
     const lastErrors: string[] = [];
+    let hasRateLimit = false;
     for (const p of candidates) {
       const keys = await getKeys(p.name);
       if (!keys.length) { lastErrors.push(p.name + ":no_keys"); continue; }
@@ -396,6 +397,7 @@ async function handleProxy(req: Request): Promise<Response> {
           if (h.consecutiveFailures >= 5) h.cbState = "open";
           await setHealth(p.name, ke.id, h);
           lastErrors.push(p.name + ":" + tryModel + ":" + resp.status);
+          if (resp.status === 429) hasRateLimit = true;
           if (resp.status === 401 || resp.status === 403) {
             await sendWebhook("auth_failure", { provider: p.name, keyId: ke.id, status: resp.status });
             await logError(p.name, ke.id, "auth", resp.status + ": " + txt.slice(0, 200));
@@ -416,7 +418,9 @@ async function handleProxy(req: Request): Promise<Response> {
         }
       }
     }
-    return new Response(JSON.stringify({ error: "all providers failed", details: lastErrors }), { status: 502, headers: { "content-type": "application/json" } });
+    const finalStatus = hasRateLimit ? 429 : 502;
+    const finalError = hasRateLimit ? "upstream rate limited, retry later" : "all providers failed";
+    return new Response(JSON.stringify({ error: finalError, details: lastErrors }), { status: finalStatus, headers: { "content-type": "application/json" } });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: "gateway error: " + e.message }), { status: 500, headers: { "content-type": "application/json" } });
   }
