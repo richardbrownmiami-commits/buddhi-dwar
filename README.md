@@ -6,22 +6,22 @@ AI Gateway proxy on Cloudflare Workers. Routes OpenAI-compatible requests to fre
 
 ## Features
 
-- **Unified API** â€” Single OpenAI-compatible endpoint for all providers
-- **Multi-provider** â€” Groq, Google Gemini, Mistral, OpenRouter, DeepSeek, Together AI + custom providers
-- **Auto failover** â€” Circuit breaker per key, dead key eviction, model fallback arrays
-- **Load balancing** â€” Round-robin, lowest-latency, or least-loaded strategy per provider
-- **Streaming** â€” SSE passthrough with 60s timeout
-- **Model fallback array** â€” Try models in order: `"model": ["gpt-4o", "claude-3", "gemini-pro"]`
-- **Usage tracking** â€” Per-key daily limits, real rate-limit headers, provider-level caps
-- **Admin dashboard** â€” Server-side auth, key management, health checks, analytics CSV export
-- **Webhook alerts** â€” Discord/Slack notifications for auth failures and evictions
-- **Dynamic providers** â€” Add OpenAI-compatible or Google-style providers at runtime via UI
+- **Unified API** -- Single OpenAI-compatible endpoint for all providers
+- **Multi-provider** -- Groq, Google Gemini, Mistral, OpenRouter, DeepSeek, Together AI + custom providers
+- **Auto failover** -- Circuit breaker per key, dead key eviction, model fallback arrays
+- **Load balancing** -- Round-robin, lowest-latency, or least-loaded strategy per provider
+- **Streaming** -- SSE passthrough with 60s timeout
+- **Model fallback array** -- Try models in order: `"model": ["gpt-4o", "claude-3", "gemini-pro"]`
+- **Usage tracking** -- Per-key daily limits, real rate-limit headers, provider-level caps
+- **Admin dashboard** -- Server-side auth, key management, health checks, analytics CSV export
+- **Webhook alerts** -- Discord/Slack notifications for auth failures and evictions
+- **Dynamic providers** -- Add OpenAI-compatible or Google-style providers at runtime via UI
 
 ## Quick Start
 
 ### 1. Add API Keys
 
-Go to `/admin` â†’ **API Keys** tab. Add keys for your providers:
+Go to `/admin` -> **API Keys** tab. Add keys for your providers:
 
 | Provider | Key URL | Free tier |
 |----------|---------|-----------|
@@ -34,7 +34,7 @@ Go to `/admin` â†’ **API Keys** tab. Add keys for your providers:
 
 ### 2. Create a Gateway Key
 
-Go to **Gateway Keys** tab â†’ click **Generate Key**. Use this as your Bearer token.
+Go to **Gateway Keys** tab -> click **Generate Key**. Use this as your Bearer token.
 
 ### 3. Make Requests
 
@@ -90,12 +90,12 @@ Access at `/admin`. Default password: `2200` (change via `ADMIN_PASSWORD` env va
 ## Architecture
 
 ```
-Client â†’ Gateway Key â†’ Buddhi Dwar (Cloudflare Worker) â†’ Provider API
-                    â†“                          â†‘
+Client -> Gateway Key -> Buddhi Dwar (Cloudflare Worker) -> Provider API
+                    v                          ^
                Rate limit check         Key selection + health
-                    â†“                          â†‘
+                    v                          ^
                Model matching           Circuit breaker + eviction
-                    â†“                          â†‘
+                    v                          ^
                Provider loop            Usage + analytics logging
 ```
 
