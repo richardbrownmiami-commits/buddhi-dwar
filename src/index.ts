@@ -244,6 +244,7 @@ function estimateCost(model: string, promptTokens: number, completionTokens: num
 interface Env { BF: KVNamespace; WEBHOOK_URL?: string; ASSETS?: Fetcher; ADMIN_PASSWORD?: string; }
 
 const CB_COOLDOWN_MS = 300000; // 5 min cooldown before half-open probe
+const KEY_COOLDOWN_MS = 60000; // 1 min cooldown after 429 rate-limit
 
 function isKeyUsable(h: HealthEntry): boolean {
   if (h.status === "expired") return false;
@@ -255,37 +256,44 @@ function isKeyUsable(h: HealthEntry): boolean {
   return h.status !== "dead";
 }
 
+async function isKeyCooling(provider: string, keyId: string): Promise<boolean> {
+  const v = await _BF.get("cooling:" + provider + ":" + keyId);
+  if (!v) return false;
+  if (Number(v) > Date.now()) return true;
+  return false;
+}
+async function setKeyCooling(provider: string, keyId: string) {
+  await _BF.put("cooling:" + provider + ":" + keyId, String(Date.now() + KEY_COOLDOWN_MS), { expirationTtl: Math.ceil(KEY_COOLDOWN_MS / 1000) + 60 });
+}
+
 async function selectKey(provider: string, keys: KeyEntry[], strategy: Strategy): Promise<{ key: KeyEntry; index: number } | null> {
   if (!keys.length) return null;
+  const usable = [];
+  for (let i = 0; i < keys.length; i++) {
+    const h = await getHealth(provider, keys[i].id);
+    if (isKeyUsable(h) && !(await isKeyCooling(provider, keys[i].id))) usable.push({ key: keys[i], index: i, h });
+  }
+  if (!usable.length) return null;
   if (strategy === "round-robin") {
     const idx = await getRotation(provider);
-    for (let i = 0; i < keys.length; i++) {
+    for (let i = 0; i < usable.length; i++) {
       const ki = (idx + i) % keys.length;
-      const h = await getHealth(provider, keys[ki].id);
-      if (isKeyUsable(h)) return { key: keys[ki], index: ki };
+      const u = usable.find((u: any) => u.index === ki);
+      if (u) return { key: u.key, index: u.index };
     }
-    return null;
+    return usable[0] ? { key: usable[0].key, index: usable[0].index } : null;
   }
   if (strategy === "lowest-latency") {
-    let best: { key: KeyEntry; index: number; latency: number } | null = null;
-    for (let i = 0; i < keys.length; i++) {
-      const h = await getHealth(provider, keys[i].id);
-      if (!isKeyUsable(h)) continue;
-      const lat = h.avgResponseTime || Infinity;
-      if (!best || lat < best.latency) best = { key: keys[i], index: i, latency: lat };
-    }
-    return best ? { key: best.key, index: best.index } : null;
+    usable.sort((a: any, b: any) => (a.h.avgResponseTime || Infinity) - (b.h.avgResponseTime || Infinity));
+    return { key: usable[0].key, index: usable[0].index };
   }
   if (strategy === "least-loaded") {
-    let best: { key: KeyEntry; index: number; ratio: number } | null = null;
-    for (let i = 0; i < keys.length; i++) {
-      const h = await getHealth(provider, keys[i].id);
-      if (!isKeyUsable(h)) continue;
-      const total = h.successCount + h.failCount;
-      const ratio = total > 0 ? h.failCount / total : 0;
-      if (!best || ratio < best.ratio) best = { key: keys[i], index: i, ratio };
-    }
-    return best ? { key: best.key, index: best.index } : null;
+    usable.sort((a: any, b: any) => {
+      const rA = (a.h.successCount + a.h.failCount) > 0 ? a.h.failCount / (a.h.successCount + a.h.failCount) : 0;
+      const rB = (b.h.successCount + b.h.failCount) > 0 ? b.h.failCount / (b.h.successCount + b.h.failCount) : 0;
+      return rA - rB;
+    });
+    return { key: usable[0].key, index: usable[0].index };
   }
   return null;
 }
@@ -394,7 +402,7 @@ async function handleProxy(req: Request): Promise<Response> {
             if (h.consecutiveFailures >= 5) h.cbState = "open";
             await setHealth(p.name, ke.id, h);
             lastErrors.push(p.name + ":" + tryModel + ":" + resp.status);
-            if (resp.status === 429) hasRateLimit = true;
+            if (resp.status === 429) { hasRateLimit = true; await setKeyCooling(p.name, ke.id); }
             if (resp.status === 401 || resp.status === 403) {
               await sendWebhook("auth_failure", { provider: p.name, keyId: ke.id, status: resp.status });
             }
@@ -454,6 +462,7 @@ async function handleEmbeddings(req: Request): Promise<Response> {
       const resp = await fetch(p.baseUrl + "/v1/embeddings", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ke.apiKey }, body: JSON.stringify({ ...body, model }) });
       const rl: ReqLog = { model, provider: p.name, keyId: ke.id, status: resp.status, latencyMs: Date.now() - start, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 };
       await updateAnalytics(rl); await trackKeyUsage(rl); await saveRateLimit(p.name, ke.id, resp);
+      if (resp.status === 429) await setKeyCooling(p.name, ke.id);
       if (resp.ok) return new Response(resp.body, { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
     }
     return new Response(JSON.stringify({ error: "no provider available for embedding model: " + model }), { status: 502, headers: { "content-type": "application/json" } });
