@@ -5,106 +5,130 @@
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>Buddhi Dwar Admin</title>
 <style>
-*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,-apple-system,sans-serif}
-body{display:flex;min-height:100vh;background:#0b1120;color:#e2e8f0}
-.sidebar{width:220px;background:#111827;padding:20px 0;border-right:1px solid #1e293b;flex-shrink:0}
-.sidebar h1{font-size:18px;color:#38bdf8;padding:0 16px 20px;border-bottom:1px solid #1e293b;margin-bottom:8px}
-.sidebar a{display:flex;align-items:center;gap:10px;padding:10px 16px;color:#94a3b8;text-decoration:none;font-size:14px;cursor:pointer;transition:.15s}
-.sidebar a:hover,.sidebar a.active{background:#1e293b;color:#38bdf8;border-right:3px solid #38bdf8}
-.main{flex:1;padding:24px}section{display:none}section.active{display:block}
-h2{font-size:20px;color:#f1f5f9;margin-bottom:20px;padding-bottom:8px;border-bottom:1px solid #1e293b}
-.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:24px}
-.card{background:#1e293b;border-radius:10px;padding:16px;border:1px solid #334155}
-.card .num{font-size:28px;font-weight:700;color:#38bdf8}
-.card .lbl{font-size:12px;color:#94a3b8;margin-top:4px;text-transform:uppercase;letter-spacing:.5px}
-table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px}
-th{color:#94a3b8;font-weight:600;padding:10px 8px;border-bottom:2px solid #334155;text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
-td{padding:10px 8px;border-bottom:1px solid #1e293b;color:#e2e8f0}
-tr:hover td{background:#111827}
-input,select{padding:10px 12px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:14px;width:100%;max-width:400px;margin:4px 0;outline:none;transition:.15s}
-input:focus,select:focus{border-color:#38bdf8;box-shadow:0 0 0 2px rgba(56,189,248,.15)}
-button{padding:10px 20px;border-radius:8px;border:none;font-size:14px;font-weight:600;cursor:pointer;margin:4px 4px 4px 0;transition:.15s}
-button.primary{background:#38bdf8;color:#0b1120}button.primary:hover{background:#7dd3fc}
-button.danger{background:#ef4444;color:#fff}button.danger:hover{background:#f87171}
-button.secondary{background:#334155;color:#e2e8f0}button.secondary:hover{background:#475569}
-pre{background:#0f172a;padding:16px;border-radius:8px;overflow:auto;font-size:13px;max-height:500px;line-height:1.5;border:1px solid #1e293b}
-.tag{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600}
-.tag.ok{background:rgba(22,163,74,.2);color:#86efac;border:1px solid #166534}
-.tag.fail{background:rgba(153,27,27,.2);color:#fca5a5;border:1px solid #991b1b}
-.tag.active{background:rgba(30,64,175,.2);color:#93c5fd;border:1px solid #1e40af}
-.tag.warning{background:rgba(146,64,14,.2);color:#fde68a;border:1px solid #92400e}
-.tag.closed{background:rgba(22,163,74,.2);color:#86efac;border:1px solid #166534}
-.tag.open{background:rgba(153,27,27,.2);color:#fca5a5;border:1px solid #991b1b}
-.tag.half-open{background:rgba(146,64,14,.2);color:#fde68a;border:1px solid #92400e}
-.form-row{display:flex;gap:12px;align-items:end;flex-wrap:wrap;margin-bottom:16px}
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',system-ui,-apple-system,sans-serif}
+body{display:flex;min-height:100vh;background:linear-gradient(135deg,#0a0e1a 0%,#0f1629 40%,#121b33 100%);color:#e2e8f0}
+.sidebar{width:240px;background:rgba(17,24,39,.85);backdrop-filter:blur(12px);padding:24px 0;border-right:1px solid rgba(56,189,248,.1);flex-shrink:0;height:100vh;position:sticky;top:0;overflow-y:auto}
+.sidebar h1{font-size:22px;font-weight:800;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:0 20px 24px;border-bottom:1px solid rgba(56,189,248,.1);margin-bottom:12px;letter-spacing:-.5px}
+.sidebar a{display:flex;align-items:center;gap:12px;padding:11px 20px;color:#8899b4;text-decoration:none;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;margin:2px 8px;border-radius:10px}
+.sidebar a:hover{background:rgba(56,189,248,.08);color:#e2e8f0}
+.sidebar a.active{background:linear-gradient(135deg,rgba(56,189,248,.12),rgba(129,140,248,.08));color:#38bdf8;box-shadow:inset 2px 0 0 #38bdf8}
+.main{flex:1;padding:32px;max-width:1200px}section{display:none}section.active{display:block}
+h2{font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(56,189,248,.08);letter-spacing:-.3px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:28px}
+.card{background:linear-gradient(135deg,rgba(30,41,59,.6),rgba(30,41,59,.3));border-radius:14px;padding:20px;border:1px solid rgba(56,189,248,.08);backdrop-filter:blur(8px);transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:rgba(56,189,248,.2)}
+.card .num{font-size:30px;font-weight:800;color:#38bdf8;letter-spacing:-.5px}
+.card .lbl{font-size:11px;color:#7488a8;margin-top:6px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;border-radius:12px;overflow:hidden}
+th{color:#7488a8;font-weight:600;padding:14px 12px;border-bottom:1px solid rgba(56,189,248,.08);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.8px;background:rgba(15,23,42,.4)}
+td{padding:12px;border-bottom:1px solid rgba(30,41,59,.4);color:#e2e8f0}
+tr:hover td{background:rgba(56,189,248,.03)}
+input,select{padding:11px 14px;border-radius:10px;border:1px solid rgba(71,85,105,.4);background:rgba(15,23,42,.6);color:#e2e8f0;font-size:14px;width:100%;max-width:400px;margin:4px 0;outline:none;transition:all .2s}
+input:focus,select:focus{border-color:#38bdf8;box-shadow:0 0 0 3px rgba(56,189,248,.12)}
+button{padding:11px 22px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;margin:4px 4px 4px 0;transition:all .2s;position:relative;overflow:hidden}
+button:active{transform:scale(.97)}
+button.primary{background:linear-gradient(135deg,#38bdf8,#6366f1);color:#fff;box-shadow:0 2px 12px rgba(56,189,248,.2)}button.primary:hover{box-shadow:0 4px 20px rgba(56,189,248,.35)}
+button.danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;box-shadow:0 2px 12px rgba(239,68,68,.2)}button.danger:hover{box-shadow:0 4px 20px rgba(239,68,68,.35)}
+button.secondary{background:rgba(51,65,85,.5);color:#e2e8f0;border:1px solid rgba(71,85,105,.3)}button.secondary:hover{background:rgba(51,65,85,.8)}
+pre{background:rgba(15,23,42,.6);padding:18px;border-radius:12px;overflow:auto;font-size:13px;max-height:500px;line-height:1.6;border:1px solid rgba(56,189,248,.08);font-family:'Fira Code','Consolas',monospace}
+.tag{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.3px}
+.tag.ok{background:rgba(22,163,74,.15);color:#86efac;border:1px solid rgba(22,163,74,.3)}
+.tag.fail{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.tag.active{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+.tag.warning{background:rgba(234,179,8,.15);color:#fde68a;border:1px solid rgba(234,179,8,.3)}
+.tag.closed{background:rgba(22,163,74,.15);color:#86efac;border:1px solid rgba(22,163,74,.3)}
+.tag.open{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.tag.half-open{background:rgba(234,179,8,.15);color:#fde68a;border:1px solid rgba(234,179,8,.3)}
+.form-row{display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-bottom:20px}
 .form-row>*{flex:1;min-width:200px}
 .form-row button{flex:0 0 auto}
-.form-group label{display:block;font-size:12px;color:#94a3b8;margin-bottom:4px;text-transform:uppercase;letter-spacing:.5px}
-.toast{position:fixed;top:20px;right:20px;padding:12px 20px;border-radius:8px;font-size:14px;z-index:1000;animation:slideIn .3s;max-width:400px}
-.toast.success{background:#166534;color:#86efac;border:1px solid #22c55e}
-.toast.error{background:#991b1b;color:#fca5a5;border:1px solid #ef4444}
-@keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
-.ico{display:inline-block;width:18px;height:18px;border-radius:4px;flex-shrink:0}
-.ico-overview{background:#38bdf8}.ico-keys{background:#f59e0b}.ico-gateway{background:#a78bfa}
-.ico-strategy{background:#34d399}.ico-logs{background:#f87171}.ico-analytics{background:#fb923c}
-.ico-settings{background:#e2e8f0}.ico-health{background:#f472b6}.ico-setup{background:#22d3ee}
-#login-overlay{position:fixed;inset:0;background:#0b1120;display:flex;align-items:center;justify-content:center;z-index:9999}
+.form-group label{display:block;font-size:11px;color:#7488a8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+.toast{position:fixed;top:24px;right:24px;padding:14px 24px;border-radius:12px;font-size:14px;font-weight:500;z-index:1000;animation:slideIn .35s cubic-bezier(.16,1,.3,1);max-width:420px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.toast.success{background:rgba(22,163,74,.2);color:#86efac;border:1px solid rgba(22,163,74,.3)}
+.toast.error{background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+@keyframes slideIn{from{transform:translateX(120%) scale(.9);opacity:0}to{transform:translateX(0) scale(1);opacity:1}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.ico{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;flex-shrink:0;font-size:11px;font-weight:700}
+.ico-overview{background:rgba(56,189,248,.15);color:#38bdf8}.ico-keys{background:rgba(245,158,11,.15);color:#f59e0b}
+.ico-gateway{background:rgba(167,139,250,.15);color:#a78bfa}.ico-strategy{background:rgba(52,211,153,.15);color:#34d399}
+.ico-logs{background:rgba(248,113,113,.15);color:#f87171}.ico-analytics{background:rgba(251,146,60,.15);color:#fb923c}
+.ico-settings{background:rgba(148,163,184,.15);color:#e2e8f0}.ico-health{background:rgba(244,114,182,.15);color:#f472b6}
+.ico-setup{background:rgba(34,211,238,.15);color:#22d3ee}
+#login-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#0a0e1a 0%,#0f1629 40%,#121b33 100%);display:flex;align-items:center;justify-content:center;z-index:9999}
 #login-overlay.hidden{display:none}
-.login-box{background:#1e293b;padding:40px;border-radius:16px;border:1px solid #334155;width:360px;max-width:90vw}
-.login-box input{width:100%;padding:12px;border-radius:8px;border:1px solid #475569;background:#0f172a;color:#e2e8f0;font-size:16px;outline:none}
-.login-box input:focus{border-color:#38bdf8}
-.pagination{display:flex;gap:8px;align-items:center;margin-top:8px;font-size:13px;color:#94a3b8}
-.pagination button{padding:4px 12px;font-size:12px}
-@media(max-width:768px){.sidebar{width:48px}.sidebar h1,.sidebar a span:last-child{display:none}.main{padding:16px}.grid-2{grid-template-columns:1fr}}
+.login-box{background:rgba(30,41,59,.6);backdrop-filter:blur(20px);padding:48px;border-radius:20px;border:1px solid rgba(56,189,248,.1);width:380px;max-width:90vw;box-shadow:0 16px 48px rgba(0,0,0,.5);animation:fadeIn .5s cubic-bezier(.16,1,.3,1)}
+.login-box h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.login-box input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(71,85,105,.4);background:rgba(15,23,42,.6);color:#e2e8f0;font-size:16px;outline:none;transition:all .2s}
+.login-box input:focus{border-color:#38bdf8;box-shadow:0 0 0 3px rgba(56,189,248,.12)}
+.login-box button{width:100%;padding:14px;border-radius:12px;font-size:15px;margin:0}
+#loading-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#38bdf8,#818cf8,#38bdf8);background-size:200% 100%;z-index:99999;transition:width .4s cubic-bezier(.16,1,.3,1),opacity .3s;width:0;opacity:0;border-radius:0 2px 2px 0;box-shadow:0 0 12px rgba(56,189,248,.5)}
+#loading-bar.active{opacity:1}button.loading{pointer-events:none;opacity:.7;position:relative}button.loading::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);background-size:200% 100%;animation:shimmer 1.2s infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.pagination{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px;color:#7488a8}
+.pagination button{padding:6px 14px;font-size:12px;border-radius:8px}
+summary{color:#38bdf8;font-weight:600;cursor:pointer;padding:8px 0;font-size:14px}
+details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:1px solid rgba(56,189,248,.06);margin-bottom:16px}
+@media(max-width:768px){.sidebar{width:60px;padding:16px 0}.sidebar h1,.sidebar a span:last-child{display:none}.sidebar a{justify-content:center;padding:11px 0;margin:2px 6px}.main{padding:20px}.grid-2{grid-template-columns:1fr}}
+@media(max-width:480px){.sidebar{width:48px}.main{padding:16px}.cards{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 <div id="login-overlay">
   <div class="login-box">
-    <h1 style="color:#38bdf8;margin-bottom:8px">Buddhi Dwar</h1>
-    <p style="color:#94a3b8;margin-bottom:20px;font-size:14px">Admin Dashboard Login</p>
-    <input id="login-pw" type="password" placeholder="Enter admin password" style="width:100%;margin-bottom:12px">
-    <button class="primary" onclick="doLogin()" style="width:100%">Login</button>
-    <p id="login-error" style="color:#fca5a5;font-size:13px;margin-top:8px;display:none">Invalid password</p>
+    <h1>Buddhi Dwar</h1>
+    <p style="color:#8899b4;margin-bottom:24px;font-size:14px">Admin Dashboard Login</p>
+    <input id="login-pw" type="password" placeholder="Enter admin password">
+    <button class="primary" onclick="doLogin()">Login</button>
+    <p id="login-error" style="color:#fca5a5;font-size:13px;margin-top:10px;display:none">Invalid password</p>
   </div>
 </div>
+<div id="loading-bar"></div>
 <div class="sidebar">
-<h1>BD</h1>
-<a onclick="showTab('overview')" id="nav-overview" class="active"><span class="ico ico-overview"></span><span>Overview</span></a>
-<a onclick="showTab('keys')" id="nav-keys"><span class="ico ico-keys"></span><span>API Keys</span></a>
-<a onclick="showTab('gateway')" id="nav-gateway"><span class="ico ico-gateway"></span><span>Gateway Keys</span></a>
-<a onclick="showTab('strategy')" id="nav-strategy"><span class="ico ico-strategy"></span><span>Strategy</span></a>
-<a onclick="showTab('logs')" id="nav-logs"><span class="ico ico-logs"></span><span>Error Logs</span></a>
-<a onclick="showTab('req-logs')" id="nav-req-logs"><span class="ico ico-logs"></span><span>Request Logs</span></a>
-<a onclick="showTab('analytics')" id="nav-analytics"><span class="ico ico-analytics"></span><span>Analytics</span></a>
-<a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings"></span><span>Settings</span></a>
-<a onclick="showTab('health')" id="nav-health"><span class="ico ico-health"></span><span>Health Check</span></a>
-<a onclick="showTab('setup')" id="nav-setup"><span class="ico ico-setup"></span><span>Setup</span></a>
-<a onclick="logout()" style="margin-top:auto;border-top:1px solid #1e293b;padding-top:12px;color:#f87171"><span style="display:inline-block;width:18px;height:18px;border-radius:4px;background:#f87171;flex-shrink:0"></span><span>Logout</span></a>
+<h1>Buddhi Dwar</h1>
+<a onclick="showTab('overview')" id="nav-overview" class="active"><span class="ico ico-overview">&#9679;</span><span>Overview</span></a>
+<a onclick="showTab('keys')" id="nav-keys"><span class="ico ico-keys">&#9881;</span><span>API Keys</span></a>
+<a onclick="showTab('gateway')" id="nav-gateway"><span class="ico ico-gateway">&#128274;</span><span>Gateway Keys</span></a>
+<a onclick="showTab('strategy')" id="nav-strategy"><span class="ico ico-strategy">&#8644;</span><span>Strategy</span></a>
+<a onclick="showTab('logs')" id="nav-logs"><span class="ico ico-logs">&#9888;</span><span>Error Logs</span></a>
+<a onclick="showTab('req-logs')" id="nav-req-logs"><span class="ico ico-logs">&#128196;</span><span>Request Logs</span></a>
+<a onclick="showTab('analytics')" id="nav-analytics"><span class="ico ico-analytics">&#128200;</span><span>Analytics</span></a>
+<a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings">&#9881;</span><span>Settings</span></a>
+<a onclick="showTab('health')" id="nav-health"><span class="ico ico-health">&#10003;</span><span>Health Check</span></a>
+<a onclick="showTab('setup')" id="nav-setup"><span class="ico ico-setup">&#8505;</span><span>Setup</span></a>
+<a onclick="logout()" style="margin-top:auto;border-top:1px solid rgba(248,113,113,.15);padding-top:14px;color:#f87171"><span class="ico ico-logs">&#10227;</span><span>Logout</span></a>
 </div>
 <div class="main" id="main-content"></div>
 <script>
+let _loadingCount = 0;
+function showLoading() { _loadingCount++; const b = document.getElementById('loading-bar'); if (b) { b.style.width = '30%'; b.classList.add('active'); } }
+function hideLoading() { _loadingCount--; if (_loadingCount <= 0) { _loadingCount = 0; const b = document.getElementById('loading-bar'); if (b) { b.style.width = '100%'; setTimeout(() => { b.style.width = '0'; b.classList.remove('active'); }, 300); } } }
 function getPw() { try { return document.cookie.match(/bfadmin=([^;]+)/)[1] || '' } catch { return '' } }
 function api(path, opts) {
+  showLoading();
   return fetch('/admin/api' + path, {
     headers: { 'Content-Type': 'application/json', ...(opts || {}).headers },
     credentials: 'same-origin', ...(opts || {})
-  }).then(r => { if (r.status === 401) { document.cookie = 'bfadmin=;max-age=0'; showLogin(); throw new Error('unauthorized'); } return r.json(); });
+  }).then(r => { hideLoading(); if (r.status === 401) { document.cookie = 'bfadmin=;max-age=0'; showLogin(); throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
 }
 function showToast(msg, type) {
+  const ico = type === 'success' ? '\u2713' : type === 'error' ? '\u2717' : '\u2139';
   const t = document.createElement('div'); t.className = 'toast ' + type;
-  t.textContent = msg; document.body.appendChild(t); setTimeout(() => t.remove(), 3000);
+  t.innerHTML = '<span style="margin-right:10px;font-size:16px">' + ico + '</span>' + msg;
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
 }
 function showLogin() { document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('main-content').innerHTML = ''; }
 function doLogin() {
   const pw = document.getElementById('login-pw').value;
   const err = document.getElementById('login-error');
+  const btn = document.querySelector('.login-box button');
   if (!pw) { err.style.display = 'block'; err.textContent = 'Enter a password'; return; }
+  err.style.display = 'none'; btn.classList.add('loading'); btn.textContent = 'Signing in...';
   fetch('/admin/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }), credentials: 'same-origin' }).then(r => {
-    if (r.ok) { err.style.display = 'none'; document.getElementById('login-overlay').classList.add('hidden'); showTab('overview'); }
+    btn.classList.remove('loading'); btn.textContent = 'Login';
+    if (r.ok) { err.style.display = 'none'; document.getElementById('login-overlay').classList.add('hidden'); showTab('overview'); showToast('Welcome back', 'success'); }
     else { err.style.display = 'block'; err.textContent = 'Invalid password'; }
-  }).catch(() => { err.style.display = 'block'; err.textContent = 'Connection error'; });
+  }).catch(() => { btn.classList.remove('loading'); btn.textContent = 'Login'; err.style.display = 'block'; err.textContent = 'Connection error'; });
 }
 document.getElementById('login-pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
 function logout() { document.cookie = 'bfadmin=;max-age=0'; showLogin(); showToast('Logged out', 'success'); }
@@ -113,7 +137,11 @@ function showTab(name) {
   const nav = document.getElementById('nav-' + name); if (nav) nav.classList.add('active');
   if (PAGES[name] && PAGES[name].render) PAGES[name].render();
 }
-function setContent(h) { document.getElementById('main-content').innerHTML = h; }
+function setContent(h) {
+  const el = document.getElementById('main-content');
+  el.style.opacity = '0';
+  setTimeout(() => { el.innerHTML = h; el.style.transition = 'opacity .25s'; el.style.opacity = '1'; }, 50);
+}
 const PAGES = {
   overview: { title: 'Dashboard Overview', render: renderOverview },
   keys: { title: 'API Keys', render: renderKeys },
@@ -132,23 +160,31 @@ async function renderOverview() {
   const a = await api('/analytics?days=7');
   let totalCost = 0; let totalTokens = 0;
   if (Array.isArray(a)) { a.forEach(d => { totalCost += d.totalCost || 0; totalTokens += (d.totalPromptTokens || 0) + (d.totalCompletionTokens || 0); }); }
+  const copyUrl = () => { navigator.clipboard.writeText('https://buddhi-dwar.richard-brown-miami.workers.dev/v1/chat/completions'); showToast('URL copied', 'success'); };
   setContent(`
-    <div class="cards">
-      <div class="card"><div class="num">${s.requestsToday || 0}</div><div class="lbl">Requests Today</div></div>
-      <div class="card"><div class="num">${s.totalKeys || 0}</div><div class="lbl">Total Keys</div></div>
-      <div class="card"><div class="num" style="color:#86efac">${s.activeKeys || 0}</div><div class="lbl">Active Keys</div></div>
-      <div class="card"><div class="num" style="color:#fca5a5">${s.deadKeys || 0}</div><div class="lbl">Dead Keys</div></div>
-      <div class="card"><div class="num" style="color:#fde68a">${s.warmingKeys || 0}</div><div class="lbl">Warming Keys</div></div>
-      <div class="card"><div class="num" style="color:#c084fc">${s.expiredKeys || 0}</div><div class="lbl">Expired Keys</div></div>
-      <div class="card"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl">Est. Cost (7d)</div></div>
-      <div class="card"><div class="num" style="color:#93c5fd">${totalTokens.toLocaleString()}</div><div class="lbl">Tokens (7d)</div></div>
-      <div class="card" style="grid-column:1/-1;border-color:#38bdf8">
-        <div style="font-size:13px;color:#94a3b8;margin-bottom:4px">Your Gateway URL</div>
-        <code style="font-size:15px;color:#38bdf8;word-break:break-all">https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions</code>
-        <div style="font-size:12px;color:#fde68a;margin-top:6px">Use a Gateway Key as Bearer token. See Setup tab for examples.</div>
-      </div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0;border:none;padding:0">Dashboard Overview</h2>
+      <span style="font-size:12px;color:#7488a8">${new Date().toLocaleTimeString()}</span>
     </div>
-    <h2 style="margin-top:24px">Daily Requests (7 days)</h2>
+    <div class="cards">
+      <div class="card" style="background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div class="num">${s.requestsToday || 0}</div><div class="lbl">Requests Today</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.05))"><div class="num">${s.totalKeys || 0}</div><div class="lbl">Total Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(22,163,74,.05))"><div class="num" style="color:#86efac">${s.activeKeys || 0}</div><div class="lbl" style="color:#86efac">Active Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(220,38,38,.05))"><div class="num" style="color:#fca5a5">${s.deadKeys || 0}</div><div class="lbl" style="color:#fca5a5">Dead Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(234,179,8,.08),rgba(202,138,4,.05))"><div class="num" style="color:#fde68a">${s.warmingKeys || 0}</div><div class="lbl" style="color:#fde68a">Warming Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(192,132,252,.08),rgba(168,85,247,.05))"><div class="num" style="color:#c084fc">${s.expiredKeys || 0}</div><div class="lbl" style="color:#c084fc">Expired Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(245,158,11,.05))"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl" style="color:#fde68a">Est. Cost (7d)</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(37,99,235,.05))"><div class="num" style="color:#93c5fd">${totalTokens.toLocaleString()}</div><div class="lbl" style="color:#93c5fd">Tokens (7d)</div></div>
+    </div>
+    <div class="card" style="grid-column:1/-1;border-color:rgba(56,189,248,.25);background:linear-gradient(135deg,rgba(56,189,248,.06),rgba(99,102,241,.04));margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:12px;color:#7488a8;font-weight:600;text-transform:uppercase;letter-spacing:.6px">Your Gateway URL</span>
+        <button onclick="${copyUrl}" class="secondary" style="padding:6px 14px;font-size:12px;margin:0">Copy URL</button>
+      </div>
+      <code style="font-size:14px;color:#38bdf8;word-break:break-all;display:block;padding:10px 14px;background:rgba(15,23,42,.4);border-radius:8px;font-family:'Fira Code','Consolas',monospace">https://buddhi-dwar.richard-brown-miami.workers.dev/v1/chat/completions</code>
+      <div style="font-size:12px;color:#fde68a;margin-top:8px">Use a Gateway Key as Bearer token. See Setup tab for examples.</div>
+    </div>
+    <h2 style="margin-top:8px">Daily Requests (7 days)</h2>
     <pre>${JSON.stringify(a, null, 2)}</pre>
   `);
 }
