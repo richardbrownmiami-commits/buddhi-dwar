@@ -731,7 +731,7 @@ export default {
 
     if (path === "/admin" || path === "/admin/") {
       if (_ASSETS) {
-        const resp = await _ASSETS.fetch("https://fake.host/admin.html");
+        const resp = await _ASSETS.fetch("https://fake.host/admin.html?v=3");
         const headers = new Headers(resp.headers);
         if (!headers.get("content-type")?.includes("charset")) {
           headers.set("content-type", "text/html; charset=utf-8");
