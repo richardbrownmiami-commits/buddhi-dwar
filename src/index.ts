@@ -309,8 +309,8 @@ async function handleProxy(req: Request): Promise<Response> {
     const body = await req.json() as any;
     const model = body.model || "";
     const isStream = body.stream === true;
-    const candidates = PROVIDERS.filter((pr: any) => pr.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(model.toLowerCase().split("/").pop() || "")));
-    if (!candidates.length) return new Response(JSON.stringify({ error: "unsupported model: " + model }), { status: 400, headers: { "content-type": "application/json" } });
+    let candidates = PROVIDERS.filter((pr: any) => pr.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(model.toLowerCase().split("/").pop() || "")));
+    if (!candidates.length) candidates = PROVIDERS.sort((a: any) => a.name === "openrouter" ? -1 : 0);
     const cacheCfg = await getCacheCfg();
     if (cacheCfg.enabled && !isStream) {
       const ck = cacheKey(body);
