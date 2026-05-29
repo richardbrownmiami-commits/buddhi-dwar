@@ -197,10 +197,13 @@ async function renderOverview() {
     <pre>${esc(JSON.stringify(a, null, 2))}</pre>
   `);
   try {
-    const ud = await api('/key-usage');
+    const ur = await api('/key-usage');
+    const ud = ur.providers || ur;
+    const t = ur.totals || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0, keys: 0 };
     const el = document.getElementById('usage-mini');
     if (!el) return;
-    let cards = '';
+    let cards = '<div class="card" style="padding:12px 16px;background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div style="font-size:16px;font-weight:700;color:#38bdf8">' + t.requests + '</div><div style="font-size:10px;color:#7488a8">Total Req</div></div>' +
+      '<div class="card" style="padding:12px 16px"><div style="font-size:16px;font-weight:700;color:#fde68a">$' + t.cost.toFixed(4) + '</div><div style="font-size:10px;color:#7488a8">Total Cost</div></div>';
     for (const [pn, pd] of Object.entries(ud)) {
       const lim = pd.limit || {}; const dReq = lim.dailyRequests || 999999;
       let tr = 0; for (const k of pd.keys) tr += k.usage.requests;
@@ -233,7 +236,7 @@ async function renderKeys() {
   }
   setContent(`
     <div class="form-row">
-      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>groq</option><option>google</option><option>mistral</option><option>openrouter</option></select></div>
+      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>groq</option><option>google</option><option>mistral</option><option>openrouter</option><option>deepseek</option><option>together</option></select></div>
       <div class="form-group"><label>API Key</label><input id="kp-key" placeholder="sk-..."></div>
       <div class="form-group"><label>Label</label><input id="kp-label" placeholder="my-key"></div>
       <button class="primary" onclick="addKey()">Add Key</button>
@@ -318,7 +321,7 @@ async function renderStrategy() {
       '<p style="font-size:13px;color:#94a3b8">Strategy: <b style="color:#e2e8f0">' + esc(strat) + '</b></p></div>';
   }
   html += '</div><h2 style="margin-top:24px">Set Strategy</h2><div class="form-row">' +
-    '<div class="form-group"><label>Provider</label><select id="str-provider">' + ['groq','google','mistral','openrouter'].map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
+    '<div class="form-group"><label>Provider</label><select id="str-provider">' + ['groq','google','mistral','openrouter','deepseek','together'].map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
     '<div class="form-group"><label>Strategy</label><select id="str-strategy"><option>round-robin</option><option>lowest-latency</option><option>least-loaded</option></select></div>' +
     '<button class="primary" onclick="updateStr()">Set</button></div>' +
     '<h2>Raw</h2><pre>' + esc(JSON.stringify(s, null, 2)) + '</pre>';
@@ -411,8 +414,17 @@ function exportAnalytics() {
   window.open('/admin/api/analytics?days=30&format=csv', '_blank');
 }
 async function renderUsage() {
-  const data = await api('/key-usage');
-  let html = '';
+  const raw = await api('/key-usage');
+  const data = raw.providers || raw;
+  const totals = raw.totals || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0, providers: 0, keys: 0 };
+  let html = '<div class="cards" style="margin-bottom:20px">' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div class="num">' + totals.requests + '</div><div class="lbl">Total Requests Today</div></div>' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(22,163,74,.05))"><div class="num" style="color:#86efac">' + totals.successes + '</div><div class="lbl" style="color:#86efac">Successes</div></div>' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(220,38,38,.05))"><div class="num" style="color:#fca5a5">' + totals.failures + '</div><div class="lbl" style="color:#fca5a5">Failures</div></div>' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(37,99,235,.05))"><div class="num" style="color:#93c5fd">' + (totals.promptTokens + totals.completionTokens).toLocaleString() + '</div><div class="lbl" style="color:#93c5fd">Total Tokens</div></div>' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(245,158,11,.05))"><div class="num" style="color:#fde68a">$' + totals.cost.toFixed(6) + '</div><div class="lbl" style="color:#fde68a">Total Cost</div></div>' +
+    '<div class="card"><div class="num">' + totals.keys + '</div><div class="lbl">Active Keys</div></div>' +
+    '</div><div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">';
   for (const [pname, pdata] of Object.entries(data)) {
     const lim = pdata.limit || {};
     const dReq = lim.dailyRequests || 999999;
@@ -431,8 +443,9 @@ async function renderUsage() {
       (totCost > 0 ? '<p style="font-size:12px;color:#fde68a">Cost: $' + totCost.toFixed(6) + '</p>' : '') +
       '<p style="font-size:11px;color:#7488a8">' + pdata.keys.length + ' key(s)</p></div>';
   }
-  if (!html) html = '<p style="color:#94a3b8">No usage data yet</p>';
-  setContent('<h2>Usage &amp; Limits</h2><p style="font-size:13px;color:#94a3b8;margin-bottom:16px">Daily usage vs free tier limits per provider</p><div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' + html + '</div>');
+  if (html === '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">') html += '<p style="color:#94a3b8">No usage data yet</p>';
+  html += '</div>';
+  setContent('<h2>Usage &amp; Limits</h2><p style="font-size:13px;color:#94a3b8;margin-bottom:16px">Daily usage vs free tier limits per provider. <a href="/admin/api/analytics?format=csv" style="color:#38bdf8" target="_blank">Export CSV</a></p>' + html);
 }
 
 async function renderSettings() {
@@ -441,7 +454,7 @@ async function renderSettings() {
   const provs = w.providers || [];
   const limits = w.limits || {};
   let provRows = provs.map((p, i) => {
-    const isDefault = ['groq','google','mistral','openrouter'].includes(p.name);
+    const isDefault = ['groq','google','mistral','openrouter','deepseek','together'].includes(p.name);
     return '<tr><td>' + esc(p.name) + (isDefault ? ' <span style="color:#7488a8;font-size:10px">default</span>' : '') + '</td>' +
       '<td style="font-size:11px;color:#94a3b8">' + esc(p.baseUrl) + '</td>' +
       '<td><span class="tag ' + (p.type==='google'?'warning':'ok') + '">' + esc(p.type) + '</span></td>' +
