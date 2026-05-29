@@ -93,6 +93,7 @@ details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:
 <a onclick="showTab('logs')" id="nav-logs"><span class="ico ico-logs">&#9888;</span><span>Error Logs</span></a>
 <a onclick="showTab('req-logs')" id="nav-req-logs"><span class="ico ico-logs">&#128196;</span><span>Request Logs</span></a>
 <a onclick="showTab('analytics')" id="nav-analytics"><span class="ico ico-analytics">&#128200;</span><span>Analytics</span></a>
+<a onclick="showTab('usage')" id="nav-usage"><span class="ico ico-overview">&#128200;</span><span>Usage</span></a>
 <a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings">&#9881;</span><span>Settings</span></a>
 <a onclick="showTab('health')" id="nav-health"><span class="ico ico-health">&#10003;</span><span>Health Check</span></a>
 <a onclick="showTab('setup')" id="nav-setup"><span class="ico ico-setup">&#8505;</span><span>Setup</span></a>
@@ -155,6 +156,7 @@ const PAGES = {
   logs: { title: 'Error & Eviction Logs', render: renderLogs },
   'req-logs': { title: 'Request Logs', render: renderReqLogs },
   analytics: { title: 'Analytics', render: renderAnalytics },
+  usage: { title: 'Usage & Limits', render: renderUsage },
   settings: { title: 'Settings', render: renderSettings },
   health: { title: 'Health Check', render: renderHealth },
   setup: { title: 'Setup Guide', render: renderSetup }
@@ -189,9 +191,27 @@ async function renderOverview() {
       <code style="font-size:14px;color:#38bdf8;word-break:break-all;display:block;padding:10px 14px;background:rgba(15,23,42,.4);border-radius:8px;font-family:'Fira Code','Consolas',monospace">https://buddhi-dwar.richard-brown-miami.workers.dev/v1/chat/completions</code>
       <div style="font-size:12px;color:#fde68a;margin-top:8px">Use a Gateway Key as Bearer token. See Setup tab for examples.</div>
     </div>
+    <h2 style="margin-top:8px">Provider Usage Today</h2>
+    <div class="cards" id="usage-mini" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">Loading...</div>
     <h2 style="margin-top:8px">Daily Requests (7 days)</h2>
     <pre>${esc(JSON.stringify(a, null, 2))}</pre>
   `);
+  try {
+    const ud = await api('/key-usage');
+    const el = document.getElementById('usage-mini');
+    if (!el) return;
+    let cards = '';
+    for (const [pn, pd] of Object.entries(ud)) {
+      const lim = pd.limit || {}; const dReq = lim.dailyRequests || 999999;
+      let tr = 0; for (const k of pd.keys) tr += k.usage.requests;
+      const pct = Math.min(100, Math.round(tr / dReq * 100));
+      const col = pct > 80 ? '#f87171' : pct > 50 ? '#fbbf24' : '#38bdf8';
+      cards += '<div class="card" style="padding:12px 16px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>' + esc(pn) + '</span><span style="color:' + col + '">' + tr + '</span></div>' +
+        '<div style="height:6px;background:rgba(71,85,105,.4);border-radius:3px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + col + ';border-radius:3px"></div></div>' +
+        '<div style="font-size:10px;color:#7488a8;margin-top:2px">limit: ' + dReq + ' req/day</div></div>';
+    }
+    el.innerHTML = cards || '<p style="color:#94a3b8">No data</p>';
+  } catch {}
 }
 async function renderKeys() {
   const raw = await api('/keys');
@@ -390,15 +410,67 @@ async function renderAnalytics() {
 function exportAnalytics() {
   window.open('/admin/api/analytics?days=30&format=csv', '_blank');
 }
+async function renderUsage() {
+  const data = await api('/key-usage');
+  let html = '';
+  for (const [pname, pdata] of Object.entries(data)) {
+    const lim = pdata.limit || {};
+    const dReq = lim.dailyRequests || 999999;
+    const dTok = lim.dailyTokens || 999999999;
+    let totReq = 0, totTok = 0, totCost = 0;
+    for (const k of pdata.keys) { totReq += k.usage.requests; totTok += k.usage.promptTokens + k.usage.completionTokens; totCost += k.usage.cost; }
+    const reqPct = Math.min(100, Math.round(totReq / dReq * 100));
+    const tokPct = Math.min(100, Math.round(totTok / dTok * 100));
+    const reqColor = reqPct > 80 ? '#f87171' : reqPct > 50 ? '#fbbf24' : '#38bdf8';
+    const tokColor = tokPct > 80 ? '#f87171' : tokPct > 50 ? '#fbbf24' : '#38bdf8';
+    html += '<div class="card" style="margin-bottom:16px"><h3 style="color:#38bdf8;margin-bottom:12px">' + esc(pname) + '</h3>' +
+      '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px"><span>Requests</span><span>' + totReq + ' / ' + dReq + '</span></div>' +
+      '<div style="height:8px;background:rgba(71,85,105,.4);border-radius:4px;overflow:hidden"><div style="width:' + reqPct + '%;height:100%;background:' + reqColor + ';border-radius:4px;transition:width .3s"></div></div></div>' +
+      '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px"><span>Tokens</span><span>' + totTok.toLocaleString() + ' / ' + dTok.toLocaleString() + '</span></div>' +
+      '<div style="height:8px;background:rgba(71,85,105,.4);border-radius:4px;overflow:hidden"><div style="width:' + tokPct + '%;height:100%;background:' + tokColor + ';border-radius:4px;transition:width .3s"></div></div></div>' +
+      (totCost > 0 ? '<p style="font-size:12px;color:#fde68a">Cost: $' + totCost.toFixed(6) + '</p>' : '') +
+      '<p style="font-size:11px;color:#7488a8">' + pdata.keys.length + ' key(s)</p></div>';
+  }
+  if (!html) html = '<p style="color:#94a3b8">No usage data yet</p>';
+  setContent('<h2>Usage &amp; Limits</h2><p style="font-size:13px;color:#94a3b8;margin-bottom:16px">Daily usage vs free tier limits per provider</p><div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">' + html + '</div>');
+}
+
 async function renderSettings() {
   const s = await api('/cache');
   const w = await api('/providers');
+  const provs = w.providers || [];
+  const limits = w.limits || {};
+  let provRows = provs.map((p, i) => {
+    const isDefault = ['groq','google','mistral','openrouter'].includes(p.name);
+    return '<tr><td>' + esc(p.name) + (isDefault ? ' <span style="color:#7488a8;font-size:10px">default</span>' : '') + '</td>' +
+      '<td style="font-size:11px;color:#94a3b8">' + esc(p.baseUrl) + '</td>' +
+      '<td><span class="tag ' + (p.type==='google'?'warning':'ok') + '">' + esc(p.type) + '</span></td>' +
+      '<td style="font-size:11px;color:#94a3b8;max-width:160px;overflow:hidden;text-overflow:ellipsis">' + esc((p.models||[]).slice(0,3).join(', ')) + '</td>' +
+      (isDefault ? '<td></td>' : '<td><button class="danger" onclick="deleteProvider(\'' + esc(p.name) + '\')" style="padding:4px 8px;font-size:11px">Remove</button></td>') + '</tr>';
+  }).join('');
+  let limRows = Object.entries(limits).map(([k, v]) => '<tr><td>' + esc(k) + '</td><td><input id="lim-dreq-' + esc(k) + '" type="number" value="' + (v.dailyRequests||999999) + '" style="width:100px;padding:6px 8px;font-size:12px">' +
+    '</td><td><input id="lim-dtok-' + esc(k) + '" type="number" value="' + (v.dailyTokens||999999999) + '" style="width:120px;padding:6px 8px;font-size:12px">' +
+    '</td><td><input id="lim-mcost-' + esc(k) + '" type="number" value="' + (v.monthlyCostUSD||0) + '" style="width:100px;padding:6px 8px;font-size:12px"></td></tr>').join('');
   setContent(`
     <div class="form-group"><label>Cache TTL (seconds)</label><input id="set-ttl" type="number" value="${s.ttlSeconds||300}"></div>
     <div class="form-group"><label>Cache Enabled</label><select id="set-cache-enabled"><option value="true" ${s.enabled?'selected':''}>Yes</option><option value="false" ${!s.enabled?'selected':''}>No</option></select></div>
     <div style="margin-top:16px"><button class="primary" onclick="saveCache()">Save Cache Settings</button></div>
-    <h2 style="margin-top:32px">Providers</h2>
-    <pre>${esc(JSON.stringify(w,null,2))}</pre>
+
+    <h2 style="margin-top:32px">Custom Providers</h2>
+    <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Add OpenAI-compatible or Google-style providers. They auto-register in the model list, proxy, and routing.</p>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input id="cp-name" placeholder="anthropic"></div>
+      <div class="form-group"><label>Base URL</label><input id="cp-url" placeholder="https://api.anthropic.com"></div>
+      <div class="form-group"><label>Type</label><select id="cp-type"><option>openai</option><option>google</option></select></div>
+      <div class="form-group"><label>Models (comma-sep)</label><input id="cp-models" placeholder="claude-3-opus,claude-3-sonnet"></div>
+      <button class="primary" onclick="addProvider()">Add Provider</button>
+    </div>
+    <table><thead><tr><th>Provider</th><th>Base URL</th><th>Type</th><th>Models</th><th></th></tr></thead><tbody>${provRows}</tbody></table>
+
+    <h2 style="margin-top:32px">Provider Limits</h2>
+    <p style="font-size:13px;color:#94a3b8;margin-bottom:8px">Set daily request/token limits per provider for usage tracking</p>
+    <table><thead><tr><th>Provider</th><th>Daily Requests</th><th>Daily Tokens</th><th>Monthly Cost $</th></tr></thead><tbody>${limRows}</tbody></table>
+    <button class="primary" onclick="saveLimits()" style="margin-top:12px">Save Limits</button>
   `);
 }
 async function saveCache() {
@@ -406,6 +478,33 @@ async function saveCache() {
   const enabled = document.getElementById('set-cache-enabled').value === 'true';
   await api('/cache', { method: 'POST', body: JSON.stringify({ ttlSeconds, enabled }) });
   showToast('Saved', 'success'); renderSettings();
+}
+async function addProvider() {
+  const name = document.getElementById('cp-name').value.trim();
+  const baseUrl = document.getElementById('cp-url').value.trim();
+  const type = document.getElementById('cp-type').value;
+  const modelsRaw = document.getElementById('cp-models').value.trim();
+  if (!name || !baseUrl) { showToast('Name and Base URL required', 'error'); return; }
+  const models = modelsRaw ? modelsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  await api('/providers', { method: 'POST', body: JSON.stringify({ name, baseUrl, type, models }) });
+  showToast('Provider ' + name + ' added', 'success'); renderSettings();
+}
+async function deleteProvider(name) {
+  if (!confirm('Remove provider "' + name + '"?')) return;
+  await api('/providers?name=' + encodeURIComponent(name), { method: 'DELETE' });
+  showToast('Provider removed', 'success'); renderSettings();
+}
+async function saveLimits() {
+  const d = await api('/providers');
+  const limits = {};
+  for (const pname of Object.keys(d.limits || {})) {
+    const dreq = document.getElementById('lim-dreq-' + pname)?.value;
+    const dtok = document.getElementById('lim-dtok-' + pname)?.value;
+    const mcost = document.getElementById('lim-mcost-' + pname)?.value;
+    if (dreq) limits[pname] = { dailyRequests: parseInt(dreq) || 999999, dailyTokens: parseInt(dtok) || 999999999, monthlyCostUSD: parseFloat(mcost) || 0 };
+  }
+  await api('/providers', { method: 'POST', body: JSON.stringify({ action: 'set-limits', limits }) });
+  showToast('Limits saved', 'success'); renderSettings();
 }
 async function renderHealth() {
   setContent('<p>Running health checks...</p>');
