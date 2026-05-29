@@ -346,7 +346,6 @@ async function renderAnalytics() {
 function exportAnalytics() {
   window.open('/admin/api/analytics?days=30&format=csv', '_blank');
 }
-}
 async function renderSettings() {
   const s = await api('/cache');
   const w = await api('/providers');
