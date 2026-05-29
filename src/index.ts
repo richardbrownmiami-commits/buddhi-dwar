@@ -116,6 +116,20 @@ function checkAdmin(req: Request): boolean {
   const c = req.headers.get("Cookie") || "";
   return c.includes("bfadmin=" + _ADMIN_PW);
 }
+function maskKey(k: string): string { return k.length > 8 ? k.slice(0, 3) + "****" + k.slice(-4) : "****"; }
+const LOGIN_ATTEMPTS = new Map<string, { count: number; until: number }>();
+function checkLoginRate(ip: string): boolean {
+  const now = Date.now(); const entry = LOGIN_ATTEMPTS.get(ip);
+  if (entry && entry.until > now) return false;
+  if (entry && entry.until <= now) LOGIN_ATTEMPTS.delete(ip);
+  return true;
+}
+function recordLoginAttempt(ip: string) {
+  const now = Date.now(); const entry = LOGIN_ATTEMPTS.get(ip);
+  if (entry) { entry.count++; if (entry.count >= 5) entry.until = now + 60000; }
+  else LOGIN_ATTEMPTS.set(ip, { count: 1, until: 0 });
+  if (LOGIN_ATTEMPTS.size > 1000) { const cutoff = now - 120000; for (const [k, v] of LOGIN_ATTEMPTS) if (v.until < cutoff) LOGIN_ATTEMPTS.delete(k); }
+}
 function getBearer(req: Request): string | null {
   const m = (req.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i);
   return m ? m[1] : null;
@@ -428,6 +442,13 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
 
   if (path === "/admin/api/keys") {
     if (req.method === "GET") {
+      if (url.searchParams.has("full")) {
+        const pname = url.searchParams.get("pname"); const id = url.searchParams.get("id");
+        if (!pname || !id) return new Response(JSON.stringify({ error: "pname and id required" }), { status: 400, headers: { "content-type": "application/json" } });
+        const keys = await getKeys(pname); const ke = keys.find((k: any) => k.id === id);
+        if (!ke) return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
+        return new Response(JSON.stringify({ apiKey: ke.apiKey }), { headers: { "content-type": "application/json" } });
+      }
       const result: any = {};
       const list = await _BF.list({ prefix: "prov:", limit: 200 });
       const seen = new Set<string>();
@@ -438,6 +459,7 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       for (const p of PROVIDERS) {
         if (!seen.has(p.name)) { result[p.name] = await getKeys(p.name); seen.add(p.name); }
       }
+      for (const pname of Object.keys(result)) result[pname] = result[pname].map((ke: any) => ({ ...ke, apiKey: maskKey(ke.apiKey || "") }));
       return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
     }
     if (req.method === "POST") {
@@ -735,8 +757,10 @@ export default {
     if (path.match(/^\/(v1\/)?chat\/completions$/)) return handleProxy(req);
     if (path.match(/^\/(v1\/)?models$/)) return handleModels();
     if (path === "/admin/api/login" && req.method === "POST") {
-      try { const { password } = await req.json() as any; if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } }); } catch {}
-      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
+      const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+      if (!checkLoginRate(ip)) return new Response(JSON.stringify({ error: "too many attempts, try later" }), { status: 429, headers: { "content-type": "application/json" } });
+      try { const { password } = await req.json() as any; if (password === _ADMIN_PW) { LOGIN_ATTEMPTS.delete(ip); return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } }); } } catch {}
+      recordLoginAttempt(ip); return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
     }
 
     if (path === "/admin" || path === "/admin/") {
