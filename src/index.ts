@@ -326,72 +326,82 @@ async function handleProxy(req: Request): Promise<Response> {
       if (!selected) { lastErrors.push(p.name + ":no_healthy"); continue; }
       const ke = selected.key;
       const h = await getHealth(p.name, ke.id);
-      try {
-        const isGoogle = p.type === "google";
-        const targetUrl = isGoogle ? p.baseUrl + "/v1beta/models/" + model + ":generateContent" : p.baseUrl + (p.type === "openai" ? "/v1/chat/completions" : "");
-        const hdrs: any = { "Content-Type": "application/json" };
-        if (isGoogle) hdrs["x-goog-api-key"] = ke.apiKey;
-        else if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
-        const reqBody = isGoogle ? JSON.stringify(oaiToGemini(body, model)) : JSON.stringify(body);
-        const resp = await fetch(targetUrl, { method: "POST", headers: hdrs, body: reqBody });
-        const latency = Date.now() - start;
-        const promptText = JSON.stringify(body.messages || "");
-        const promptTokens = estimateTokens(promptText);
-        let completionTokens = 0;
-        if (resp.ok) {
-          if (isGoogle) {
-            try { const j = await resp.clone().json() as any; completionTokens = estimateTokens(j.candidates?.[0]?.content?.parts?.[0]?.text || ""); } catch { completionTokens = 0; }
-          } else {
-            try { const j = await resp.clone().json() as any; completionTokens = j.usage?.completion_tokens || estimateTokens(JSON.stringify(j.choices?.[0]?.message?.content || "")); } catch { completionTokens = 0; }
+      const tryModels = [model, ...p.models.filter((m: string) => m.toLowerCase() !== model.toLowerCase())];
+      let fellback = false;
+      for (const tryModel of tryModels) {
+        if (fellback) break;
+        try {
+          const isGoogle = p.type === "google";
+          const targetUrl = isGoogle ? p.baseUrl + "/v1beta/models/" + tryModel + ":generateContent" : p.baseUrl + (p.type === "openai" ? "/v1/chat/completions" : "");
+          const hdrs: any = { "Content-Type": "application/json" };
+          if (isGoogle) hdrs["x-goog-api-key"] = ke.apiKey;
+          else if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
+          const reqBody = isGoogle ? JSON.stringify(oaiToGemini(body, tryModel)) : JSON.stringify({ ...body, model: tryModel });
+          const resp = await fetch(targetUrl, { method: "POST", headers: hdrs, body: reqBody });
+          const latency = Date.now() - start;
+          const promptText = JSON.stringify(body.messages || "");
+          const promptTokens = estimateTokens(promptText);
+          let completionTokens = 0;
+          if (resp.ok) {
+            if (isGoogle) {
+              try { const j = await resp.clone().json() as any; completionTokens = estimateTokens(j.candidates?.[0]?.content?.parts?.[0]?.text || ""); } catch { completionTokens = 0; }
+            } else {
+              try { const j = await resp.clone().json() as any; completionTokens = j.usage?.completion_tokens || estimateTokens(JSON.stringify(j.choices?.[0]?.message?.content || "")); } catch { completionTokens = 0; }
+            }
           }
-        }
-        const cost = estimateCost(model, promptTokens, completionTokens);
-        const rl: ReqLog = { model, provider: p.name, keyId: ke.id, status: resp.status, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens, cost };
-        await logRequest(rl);
-        await updateAnalytics(rl);
-        if (resp.ok) {
-          await setRotation(p.name, (selected.index + 1) % keys.length);
-          h.status = "active"; h.cbState = "closed"; h.consecutiveFailures = 0; h.successCount++; h.lastUsed = Date.now(); h.lastCheck = Date.now();
-          h.lastResponseTime = latency;
-          h.avgResponseTime = h.avgResponseTime ? Math.round((h.avgResponseTime * (h.successCount - 1) + latency) / h.successCount) : latency;
+          const cost = estimateCost(tryModel, promptTokens, completionTokens);
+          const rl: ReqLog = { model: tryModel, provider: p.name, keyId: ke.id, status: resp.status, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens, cost };
+          await logRequest(rl);
+          await updateAnalytics(rl);
+          if (resp.ok) {
+            if (tryModel !== model) fellback = true;
+            await setRotation(p.name, (selected.index + 1) % keys.length);
+            h.status = "active"; h.cbState = "closed"; h.consecutiveFailures = 0; h.successCount++; h.lastUsed = Date.now(); h.lastCheck = Date.now();
+            h.lastResponseTime = latency;
+            h.avgResponseTime = h.avgResponseTime ? Math.round((h.avgResponseTime * (h.successCount - 1) + latency) / h.successCount) : latency;
+            await setHealth(p.name, ke.id, h);
+            await incrStat(getToday());
+            if (cacheCfg.enabled && !isStream) {
+              const txt = await resp.clone().text();
+              await setCached(cacheKey(body), txt, cacheCfg.ttlSeconds);
+            }
+            if (isStream) {
+              const stream = streamWithTimeout(resp.body!, 60000);
+              return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "Access-Control-Allow-Origin": "*" } });
+            }
+            if (isGoogle) {
+              const j = await resp.clone().json() as any;
+              const oai = geminiToOai(j, model);
+              return new Response(JSON.stringify(oai), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+            }
+            const j = await resp.json() as any;
+            j.model = model;
+            return new Response(JSON.stringify(j), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+          }
+          const txt = await resp.text();
+          h.failCount++; h.lastError = tryModel + " " + resp.status + ": " + txt.slice(0, 200); h.lastCheck = Date.now();
+          if (resp.status === 401 || resp.status === 403) { h.consecutiveFailDays++; } else { h.consecutiveFailures++; }
+          if (h.consecutiveFailures >= 5) h.cbState = "open";
           await setHealth(p.name, ke.id, h);
-          await incrStat(getToday());
-          if (cacheCfg.enabled && !isStream) {
-            const txt = await resp.clone().text();
-            await setCached(cacheKey(body), txt, cacheCfg.ttlSeconds);
+          lastErrors.push(p.name + ":" + tryModel + ":" + resp.status);
+          if (resp.status === 401 || resp.status === 403) {
+            await sendWebhook("auth_failure", { provider: p.name, keyId: ke.id, status: resp.status });
+            await logError(p.name, ke.id, "auth", resp.status + ": " + txt.slice(0, 200));
           }
-          if (isStream) {
-            const stream = streamWithTimeout(resp.body!, 60000);
-            return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "Access-Control-Allow-Origin": "*" } });
-          }
-          if (isGoogle) {
-            const j = await resp.clone().json() as any;
-            const oai = geminiToOai(j, model);
-            return new Response(JSON.stringify(oai), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
-          }
-          return resp;
+          if (resp.status === 401 || resp.status === 403 || resp.status >= 500) break;
+        } catch (e: any) {
+          const latency = Date.now() - start;
+          const promptText = JSON.stringify(body.messages || "");
+          const promptTokens = estimateTokens(promptText);
+          const rl: ReqLog = { model: tryModel, provider: p.name, keyId: ke.id, status: 0, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens: 0, cost: estimateCost(tryModel, promptTokens, 0) };
+          await logRequest(rl); await updateAnalytics(rl);
+          h.failCount++; h.lastError = tryModel + " " + e.message; h.lastCheck = Date.now(); h.consecutiveFailures++;
+          if (h.consecutiveFailures >= 5) h.cbState = "open";
+          await setHealth(p.name, ke.id, h);
+          await logError(p.name, ke.id, "network", e.message);
+          lastErrors.push(p.name + ":" + tryModel + ":error:" + e.message.slice(0, 50));
+          break;
         }
-        const txt = await resp.text();
-        h.failCount++; h.lastError = resp.status + ": " + txt.slice(0, 200); h.lastCheck = Date.now();
-        if (resp.status === 401 || resp.status === 403) { h.consecutiveFailDays++; } else { h.consecutiveFailures++; }
-        if (h.consecutiveFailures >= 5) h.cbState = "open";
-        await setHealth(p.name, ke.id, h);
-        lastErrors.push(p.name + ":" + resp.status);
-        if (resp.status === 401 || resp.status === 403) {
-          await sendWebhook("auth_failure", { provider: p.name, keyId: ke.id, status: resp.status });
-          await logError(p.name, ke.id, "auth", resp.status + ": " + txt.slice(0, 200));
-        }
-      } catch (e: any) {
-        const latency = Date.now() - start;
-        const promptText = JSON.stringify(body.messages || "");
-        const promptTokens = estimateTokens(promptText);
-        const rl: ReqLog = { model, provider: p.name, keyId: ke.id, status: 0, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens: 0, cost: estimateCost(model, promptTokens, 0) };
-        await logRequest(rl); await updateAnalytics(rl);
-        h.failCount++; h.lastError = e.message; h.lastCheck = Date.now(); h.consecutiveFailures++;
-        if (h.consecutiveFailures >= 5) h.cbState = "open";
-        await setHealth(p.name, ke.id, h);
-        await logError(p.name, ke.id, "network", e.message);
-        lastErrors.push(p.name + ":error:" + e.message.slice(0, 50));
       }
     }
     return new Response(JSON.stringify({ error: "all providers failed", details: lastErrors }), { status: 502, headers: { "content-type": "application/json" } });
