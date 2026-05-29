@@ -724,6 +724,11 @@ export default {
     const path = url.pathname;
     if (path.match(/^\/(v1\/)?chat\/completions$/)) return handleProxy(req);
     if (path.match(/^\/(v1\/)?models$/)) return handleModels();
+    if (path === "/admin/api/login" && req.method === "POST") {
+      try { const { password } = await req.json() as any; if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } }); } catch {}
+      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
+    }
+
     if (path === "/admin" || path === "/admin/") {
       if (_ASSETS) {
         const resp = await _ASSETS.fetch("https://fake.host/admin.html");
