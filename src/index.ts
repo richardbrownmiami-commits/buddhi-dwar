@@ -792,7 +792,7 @@ app.post("/admin/api/login", async (c) => {
 
 app.get("/admin", async (c) => {
   if (_ASSETS) {
-    const resp = await _ASSETS.fetch("https://fake.host/admin.html");
+    const resp = await _ASSETS.fetch("https://fake.host/admin.html?v=4");
     const hdrs = new Headers(resp.headers);
     if (!hdrs.get("content-type")?.includes("charset")) hdrs.set("content-type", "text/html; charset=utf-8");
     hdrs.set("Cache-Control", "no-cache, no-store, must-revalidate");
