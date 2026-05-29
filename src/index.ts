@@ -223,6 +223,22 @@ function geminiToOai(data: any, model: string) {
   return { id: 'chatcmpl-' + Date.now(), object: 'chat.completion', created: Math.floor(Date.now() / 1000), model, choices, usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
 }
 
+/* â”€â”€ Anthropic â†” OpenAI Format Converters â”€â”€ */
+function anthropicToOpenAI(body: any): any {
+  const messages: any[] = [];
+  if (body.system) messages.push({ role: "system", content: body.system });
+  for (const m of (body.messages || [])) {
+    const content = typeof m.content === "string" ? m.content : (m.content || []).map((c: any) => c.text || "").join("");
+    messages.push({ role: m.role, content });
+  }
+  return { model: body.model, messages, max_tokens: body.max_tokens, temperature: body.temperature, top_p: body.top_p, stream: body.stream === true, stop: body.stop_sequences };
+}
+function openAIToAnthropic(oai: any, model: string): any {
+  const choice = oai.choices?.[0] || {};
+  const stopMap: Record<string, string> = { stop: "end_turn", length: "max_tokens" };
+  return { id: "msg_" + (oai.id || Date.now()), type: "message", role: "assistant", content: [{ type: "text", text: choice.message?.content || "" }], model, stop_reason: stopMap[choice.finish_reason || ""] || null, stop_sequence: null, usage: { input_tokens: oai.usage?.prompt_tokens || 0, output_tokens: oai.usage?.completion_tokens || 0 } };
+}
+
 /* â”€â”€ Token Counting & Pricing â”€â”€ */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-2.0-flash": { input: 0.1, output: 0.4 },
@@ -468,6 +484,24 @@ async function handleEmbeddings(req: Request): Promise<Response> {
     return new Response(JSON.stringify({ error: "no provider available for embedding model: " + model }), { status: 502, headers: { "content-type": "application/json" } });
   } catch (e: any) {
     return new Response(JSON.stringify({ error: "embedding error: " + e.message }), { status: 500, headers: { "content-type": "application/json" } });
+  }
+}
+
+async function handleAnthropic(req: Request): Promise<Response> {
+  try {
+    const body = await req.json() as any;
+    if (!body.model) return new Response(JSON.stringify({ error: "model required" }), { status: 400, headers: { "content-type": "application/json" } });
+    const oaiBody = anthropicToOpenAI(body);
+    const newReq = new Request(req.url, { method: "POST", headers: req.headers, body: JSON.stringify(oaiBody) });
+    const resp = await handleProxy(newReq);
+    if (!resp.ok) return resp;
+    const ct = resp.headers.get("content-type") || "";
+    if (ct.includes("text/event-stream")) return resp;
+    const oaiData = await resp.json() as any;
+    const anthData = openAIToAnthropic(oaiData, body.model);
+    return new Response(JSON.stringify(anthData), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
+  } catch (e: any) {
+    return new Response(JSON.stringify({ error: "anthropic error: " + e.message }), { status: 500, headers: { "content-type": "application/json" } });
   }
 }
 
@@ -823,6 +857,7 @@ const app = new Hono();
 app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
 app.post("/chat/completions", async (c) => handleProxy(c.req));
 app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req));
+app.post("/v1/messages", async (c) => handleAnthropic(c.req));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 
