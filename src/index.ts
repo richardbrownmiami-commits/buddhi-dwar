@@ -1,4 +1,3 @@
-import { Hono } from 'hono';
 const DAY_MS = 86400000;
 const EVICT_DAYS = 5;
 let _BF: KVNamespace;
@@ -814,44 +813,35 @@ async function handleCron() {
   }
 }
 
-/* ── Hono App ── */
-const app = new Hono();
-
-app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
-app.post("/chat/completions", async (c) => handleProxy(c.req));
-app.get("/v1/models", async (c) => handleModels());
-app.get("/models", async (c) => handleModels());
-
-app.post("/admin/api/login", async (c) => {
-  const ip = c.req.header("CF-Connecting-IP") || "unknown";
-  if (!(await checkLoginRate(ip))) return c.json({ error: "too many attempts, try later" }, 429);
-  try {
-    const { password } = await c.req.json() as any;
-    if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } });
-  } catch {}
-  await recordLoginAttempt(ip);
-  return c.json({ error: "unauthorized" }, 401);
-});
-
-app.get("/admin", async (c) => {
-  if (_ASSETS) {
-    const resp = await _ASSETS.fetch("https://fake.host/admin.html");
-    const hdrs = new Headers(resp.headers);
-    if (!hdrs.get("content-type")?.includes("charset")) hdrs.set("content-type", "text/html; charset=utf-8");
-    hdrs.set("Cache-Control", "no-cache, no-store, must-revalidate");
-    hdrs.set("Pragma", "no-cache"); hdrs.set("Expires", "0");
-    return new Response(resp.body, { status: resp.status, headers: hdrs });
-  }
-  return c.html("<!DOCTYPE html><html><body><h1>Assets unavailable</h1></body></html>");
-});
-app.get("/admin/", async (c) => c.redirect("/admin"));
-app.all("/admin/*", async (c) => handleAdminApi(c.req, c.req.path));
-
 export default {
-  async fetch(req: Request, env: Env, ctx: ExecutionContext) {
+  async fetch(req: Request, env: Env): Promise<Response> {
     _BF = env.BF; _ASSETS = env.ASSETS as Fetcher;
     _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
-    return app.fetch(req, env, ctx);
+    const url = new URL(req.url);
+    const path = url.pathname;
+    if (path.match(/^\/(v1\/)?chat\/completions$/)) return handleProxy(req);
+    if (path.match(/^\/(v1\/)?models$/)) return handleModels();
+    if (path === "/admin/api/login" && req.method === "POST") {
+      const ip = req.headers.get("CF-Connecting-IP") || "unknown";
+      if (!(await checkLoginRate(ip))) return new Response(JSON.stringify({ error: "too many attempts, try later" }), { status: 429, headers: { "content-type": "application/json" } });
+      try { const { password } = await req.json() as any; if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } }); } catch {}
+      await recordLoginAttempt(ip); return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
+    }
+    if (path === "/admin" || path === "/admin/") {
+      if (_ASSETS) {
+        const resp = await _ASSETS.fetch("https://fake.host/admin.html");
+        const hdrs = new Headers(resp.headers);
+        if (!hdrs.get("content-type")?.includes("charset")) hdrs.set("content-type", "text/html; charset=utf-8");
+        hdrs.set("Cache-Control", "no-cache, no-store, must-revalidate");
+        hdrs.set("Pragma", "no-cache"); hdrs.set("Expires", "0");
+        return new Response(resp.body, { status: resp.status, headers: hdrs });
+      }
+      const today = getToday();
+      const reqsToday = await getStat(today);
+      return new Response("<!DOCTYPE html><html><body><h1>Assets unavailable. Req today: " + reqsToday + "</h1></body></html>", { headers: { "content-type": "text/html;charset=utf-8" } });
+    }
+    if (path.startsWith("/admin")) return handleAdminApi(req, path);
+    return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
     _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
