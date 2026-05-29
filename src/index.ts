@@ -117,18 +117,16 @@ function checkAdmin(req: Request): boolean {
   return c.includes("bfadmin=" + _ADMIN_PW);
 }
 function maskKey(k: string): string { return k.length > 8 ? k.slice(0, 3) + "****" + k.slice(-4) : "****"; }
-const LOGIN_ATTEMPTS = new Map<string, { count: number; until: number }>();
-function checkLoginRate(ip: string): boolean {
-  const now = Date.now(); const entry = LOGIN_ATTEMPTS.get(ip);
-  if (entry && entry.until > now) return false;
-  if (entry && entry.until <= now) LOGIN_ATTEMPTS.delete(ip);
+async function checkLoginRate(ip: string): Promise<boolean> {
+  const raw = await _BF.get("login:rl:" + ip);
+  if (raw) { const entry = JSON.parse(raw); if (entry.count >= 5) return false; }
   return true;
 }
-function recordLoginAttempt(ip: string) {
-  const now = Date.now(); const entry = LOGIN_ATTEMPTS.get(ip);
-  if (entry) { entry.count++; if (entry.count >= 5) entry.until = now + 60000; }
-  else LOGIN_ATTEMPTS.set(ip, { count: 1, until: 0 });
-  if (LOGIN_ATTEMPTS.size > 1000) { const cutoff = now - 120000; for (const [k, v] of LOGIN_ATTEMPTS) if (v.until < cutoff) LOGIN_ATTEMPTS.delete(k); }
+async function recordLoginAttempt(ip: string) {
+  const raw = await _BF.get("login:rl:" + ip);
+  const entry = raw ? JSON.parse(raw) : { count: 0 };
+  entry.count++;
+  await _BF.put("login:rl:" + ip, JSON.stringify(entry), { expirationTtl: 60 });
 }
 function getBearer(req: Request): string | null {
   const m = (req.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i);
@@ -758,9 +756,9 @@ export default {
     if (path.match(/^\/(v1\/)?models$/)) return handleModels();
     if (path === "/admin/api/login" && req.method === "POST") {
       const ip = req.headers.get("CF-Connecting-IP") || "unknown";
-      if (!checkLoginRate(ip)) return new Response(JSON.stringify({ error: "too many attempts, try later" }), { status: 429, headers: { "content-type": "application/json" } });
-      try { const { password } = await req.json() as any; if (password === _ADMIN_PW) { LOGIN_ATTEMPTS.delete(ip); return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } }); } } catch {}
-      recordLoginAttempt(ip); return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
+      if (!(await checkLoginRate(ip))) return new Response(JSON.stringify({ error: "too many attempts, try later" }), { status: 429, headers: { "content-type": "application/json" } });
+      try { const { password } = await req.json() as any; if (password === _ADMIN_PW) { return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } }); } } catch {}
+      await recordLoginAttempt(ip); return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
     }
 
     if (path === "/admin" || path === "/admin/") {
