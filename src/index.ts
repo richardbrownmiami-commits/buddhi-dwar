@@ -1,3 +1,4 @@
+import { Hono } from 'hono';
 const DAY_MS = 86400000;
 const EVICT_DAYS = 5;
 let _BF: KVNamespace;
@@ -97,7 +98,7 @@ async function getAllGwKeys(): Promise<GatewayKey[]> {
 async function incrStat(date: string) {
   const k = "stat:req:" + date;
   const v = await _BF.get(k);
-  await _BF.put(k, v ? (parseInt(v) + 1).toString() : "1");
+  await _BF.put(k, v ? (parseInt(v) + 1).toString() : "1", { expirationTtl: 86400 * 30 });
 }
 function getToday() { return new Date().toISOString().slice(0, 10); }
 async function getStat(date: string): Promise<number> {
@@ -105,7 +106,7 @@ async function getStat(date: string): Promise<number> {
   return v ? parseInt(v) : 0;
 }
 async function logError(provider: string, keyId: string, error: string, message: string) {
-  await _BF.put("log:err:" + Date.now(), JSON.stringify({ provider, keyId, error, message, ts: Date.now() }), { expirationTtl: 604800 });
+  await _BF.put("log:err:" + Date.now(), JSON.stringify({ provider, keyId, error, message, ts: Date.now() }), { expirationTtl: 86400 });
 }
 async function logEviction(provider: string, keyId: string, reason: string) {
   const entry = { provider, keyId, reason, evictedAt: Date.now() };
@@ -144,7 +145,7 @@ function getBearer(req: Request): string | null {
 
 async function logRequest(rl: ReqLog) {
   const key = "reqlog:" + getToday() + ":" + Date.now();
-  await _BF.put(key, JSON.stringify(rl), { expirationTtl: 604800 });
+  await _BF.put(key, JSON.stringify(rl), { expirationTtl: 86400 });
 }
 
 async function updateAnalytics(rl: ReqLog) {
@@ -327,29 +328,6 @@ function streamWithTimeout(readable: ReadableStream, timeoutMs: number = 60000):
   });
 }
 
-/* ── Response Caching ── */
-interface CacheConfig { ttlSeconds: number; enabled: boolean; }
-const DEFAULT_CACHE: CacheConfig = { ttlSeconds: 300, enabled: false };
-async function getCacheCfg(): Promise<CacheConfig> {
-  const raw = await _BF.get("cache:config", "json");
-  return (raw as CacheConfig) || DEFAULT_CACHE;
-}
-async function setCacheCfg(cfg: CacheConfig) {
-  await _BF.put("cache:config", JSON.stringify(cfg));
-}
-function cacheKey(body: any): string {
-  const h = String(body.model) + ":" + JSON.stringify(body.messages) + ":" + (body.temperature ?? "") + ":" + (body.max_tokens ?? "") + ":" + (body.top_p ?? "");
-  let hash = 0;
-  for (let i = 0; i < h.length; i++) { const c = h.charCodeAt(i); hash = ((hash << 5) - hash) + c; hash |= 0; }
-  return "cache:" + hash.toString(36);
-}
-async function getCached(key: string): Promise<string | null> {
-  return await _BF.get(key);
-}
-async function setCached(key: string, data: string, ttl: number) {
-  await _BF.put(key, data, { expirationTtl: ttl });
-}
-
 async function handleProxy(req: Request): Promise<Response> {
   const start = Date.now();
   try {
@@ -370,12 +348,6 @@ async function handleProxy(req: Request): Promise<Response> {
     const allProvs = await getAllProviders();
     let candidates = allProvs.filter((pr: any) => pr.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(model.toLowerCase().split("/").pop() || "")));
     if (!candidates.length) candidates = allProvs.sort((a: any) => a.name === "openrouter" ? -1 : 0);
-    const cacheCfg = await getCacheCfg();
-    if (cacheCfg.enabled && !isStream) {
-      const ck = cacheKey(body);
-      const cached = await getCached(ck);
-      if (cached) return new Response(cached, { headers: { "content-type": "application/json", "X-Cache": "HIT", "access-control-allow-origin": "*" } });
-    }
     const lastErrors: string[] = [];
     let hasRateLimit = false;
     for (const p of candidates) {
@@ -423,10 +395,6 @@ async function handleProxy(req: Request): Promise<Response> {
             h.avgResponseTime = h.avgResponseTime ? Math.round((h.avgResponseTime * (h.successCount - 1) + latency) / h.successCount) : latency;
             await setHealth(p.name, ke.id, h);
             await incrStat(getToday());
-            if (cacheCfg.enabled && !isStream) {
-              const txt = await resp.clone().text();
-              await setCached(cacheKey(body), txt, cacheCfg.ttlSeconds);
-            }
             if (isStream) {
               const stream = streamWithTimeout(resp.body!, 60000);
               return new Response(stream, { status: 200, headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", "Connection": "keep-alive", "Access-Control-Allow-Origin": "*" } });
@@ -846,47 +814,51 @@ async function handleCron() {
   }
 }
 
-export default {
-  async fetch(req: Request, env: Env): Promise<Response> {
-    _BF = env.BF;
-    _ASSETS = env.ASSETS as Fetcher;
-    _WEBHOOK_URL = env.WEBHOOK_URL || "";
-    _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
-    const url = new URL(req.url);
-    const path = url.pathname;
-    if (path.match(/^\/(v1\/)?chat\/completions$/)) return handleProxy(req);
-    if (path.match(/^\/(v1\/)?models$/)) return handleModels();
-    if (path === "/admin/api/login" && req.method === "POST") {
-      const ip = req.headers.get("CF-Connecting-IP") || "unknown";
-      if (!(await checkLoginRate(ip))) return new Response(JSON.stringify({ error: "too many attempts, try later" }), { status: 429, headers: { "content-type": "application/json" } });
-      try { const { password } = await req.json() as any; if (password === _ADMIN_PW) { return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } }); } } catch {}
-      await recordLoginAttempt(ip); return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
-    }
+/* ── Hono App ── */
+const app = new Hono();
 
-    if (path === "/admin" || path === "/admin/") {
-      if (_ASSETS) {
-        const resp = await _ASSETS.fetch("https://fake.host/admin.html?v=3");
-        const headers = new Headers(resp.headers);
-        if (!headers.get("content-type")?.includes("charset")) {
-          headers.set("content-type", "text/html; charset=utf-8");
-        }
-        headers.set("Cache-Control", "no-cache, no-store, must-revalidate");
-        headers.set("Pragma", "no-cache");
-        headers.set("Expires", "0");
-        return new Response(resp.body, { status: resp.status, headers });
-      }
-      const today = getToday();
-      const reqsToday = await getStat(today);
-      const html = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>BD Admin</title></head><body><h1>BD Admin</h1><p>Assets not available. Req today: ${reqsToday}</p></body></html>`;
-      return new Response(html, { headers: { "content-type": "text/html;charset=utf-8" } });
-    }
-    if (path.startsWith("/admin")) return handleAdminApi(req, path);
-    return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
-  },
+app.use("*", async (c, next) => {
+  const env = c.env as Env;
+  _BF = env.BF; _ASSETS = env.ASSETS as Fetcher;
+  _WEBHOOK_URL = env.WEBHOOK_URL || "";
+  _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
+  await next();
+});
+
+app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
+app.post("/chat/completions", async (c) => handleProxy(c.req));
+app.get("/v1/models", async (c) => handleModels());
+app.get("/models", async (c) => handleModels());
+
+app.post("/admin/api/login", async (c) => {
+  const ip = c.req.header("CF-Connecting-IP") || "unknown";
+  if (!(await checkLoginRate(ip))) return c.json({ error: "too many attempts, try later" }, 429);
+  try {
+    const { password } = await c.req.json() as any;
+    if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } });
+  } catch {}
+  await recordLoginAttempt(ip);
+  return c.json({ error: "unauthorized" }, 401);
+});
+
+app.get("/admin", async (c) => {
+  if (_ASSETS) {
+    const resp = await _ASSETS.fetch("https://fake.host/admin.html");
+    const hdrs = new Headers(resp.headers);
+    if (!hdrs.get("content-type")?.includes("charset")) hdrs.set("content-type", "text/html; charset=utf-8");
+    hdrs.set("Cache-Control", "no-cache, no-store, must-revalidate");
+    hdrs.set("Pragma", "no-cache"); hdrs.set("Expires", "0");
+    return new Response(resp.body, { status: resp.status, headers: hdrs });
+  }
+  return c.html("<!DOCTYPE html><html><body><h1>Assets unavailable</h1></body></html>");
+});
+app.get("/admin/", async (c) => c.redirect("/admin"));
+app.all("/admin/*", async (c) => handleAdminApi(c.req, c.req.path));
+
+export default {
+  fetch: app.fetch,
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
-    _BF = env.BF;
-    _WEBHOOK_URL = env.WEBHOOK_URL || "";
-    _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
+    _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
     await handleCron();
   },
 };

@@ -460,7 +460,6 @@ async function renderUsage() {
 }
 
 async function renderSettings() {
-  const s = await api('/cache');
   const w = await api('/providers');
   const provs = w.providers || [];
   const limits = w.limits || {};
@@ -476,10 +475,6 @@ async function renderSettings() {
     '</td><td><input id="lim-dtok-' + esc(k) + '" type="number" value="' + (v.dailyTokens||999999999) + '" style="width:120px;padding:6px 8px;font-size:12px">' +
     '</td><td><input id="lim-mcost-' + esc(k) + '" type="number" value="' + (v.monthlyCostUSD||0) + '" style="width:100px;padding:6px 8px;font-size:12px"></td></tr>').join('');
   setContent(`
-    <div class="form-group"><label>Cache TTL (seconds)</label><input id="set-ttl" type="number" value="${s.ttlSeconds||300}"></div>
-    <div class="form-group"><label>Cache Enabled</label><select id="set-cache-enabled"><option value="true" ${s.enabled?'selected':''}>Yes</option><option value="false" ${!s.enabled?'selected':''}>No</option></select></div>
-    <div style="margin-top:16px"><button class="primary" onclick="saveCache()">Save Cache Settings</button></div>
-
     <h2 style="margin-top:32px">Custom Providers</h2>
     <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Add OpenAI-compatible or Google-style providers. They auto-register in the model list, proxy, and routing.</p>
     <div class="form-row">
@@ -496,12 +491,6 @@ async function renderSettings() {
     <table><thead><tr><th>Provider</th><th>Daily Requests</th><th>Daily Tokens</th><th>Monthly Cost $</th></tr></thead><tbody>${limRows}</tbody></table>
     <button class="primary" onclick="saveLimits()" style="margin-top:12px">Save Limits</button>
   `);
-}
-async function saveCache() {
-  const ttlSeconds = parseInt(document.getElementById('set-ttl').value) || 300;
-  const enabled = document.getElementById('set-cache-enabled').value === 'true';
-  await api('/cache', { method: 'POST', body: JSON.stringify({ ttlSeconds, enabled }) });
-  showToast('Saved', 'success'); renderSettings();
 }
 async function addProvider() {
   const name = document.getElementById('cp-name').value.trim();
