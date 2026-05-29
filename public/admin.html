@@ -430,7 +430,17 @@ async function renderUsage() {
     const dReq = lim.dailyRequests || 999999;
     const dTok = lim.dailyTokens || 999999999;
     let totReq = 0, totTok = 0, totCost = 0;
-    for (const k of pdata.keys) { totReq += k.usage.requests; totTok += k.usage.promptTokens + k.usage.completionTokens; totCost += k.usage.cost; }
+    let rlHtml = '';
+    for (const k of pdata.keys) { 
+      totReq += k.usage.requests; totTok += k.usage.promptTokens + k.usage.completionTokens; totCost += k.usage.cost;
+      if (k.rateLimit) {
+        const rrem = k.rateLimit['x-ratelimit-remaining-requests'] || k.rateLimit['x-ratelimit-remaining'] || '?';
+        const rlim = k.rateLimit['x-ratelimit-limit-requests'] || k.rateLimit['x-ratelimit-limit'] || '?';
+        const trem = k.rateLimit['x-ratelimit-remaining-tokens'] || '?';
+        const tlim = k.rateLimit['x-ratelimit-limit-tokens'] || '?';
+        rlHtml += '<p style="font-size:11px;color:#86efac;margin-top:4px">Rate limit: ' + rrem + '/' + rlim + ' req, ' + trem + '/' + tlim + ' tok</p>';
+      }
+    }
     const reqPct = Math.min(100, Math.round(totReq / dReq * 100));
     const tokPct = Math.min(100, Math.round(totTok / dTok * 100));
     const reqColor = reqPct > 80 ? '#f87171' : reqPct > 50 ? '#fbbf24' : '#38bdf8';
@@ -441,6 +451,7 @@ async function renderUsage() {
       '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px"><span>Tokens</span><span>' + totTok.toLocaleString() + ' / ' + dTok.toLocaleString() + '</span></div>' +
       '<div style="height:8px;background:rgba(71,85,105,.4);border-radius:4px;overflow:hidden"><div style="width:' + tokPct + '%;height:100%;background:' + tokColor + ';border-radius:4px;transition:width .3s"></div></div></div>' +
       (totCost > 0 ? '<p style="font-size:12px;color:#fde68a">Cost: $' + totCost.toFixed(6) + '</p>' : '') +
+      rlHtml +
       '<p style="font-size:11px;color:#7488a8">' + pdata.keys.length + ' key(s)</p></div>';
   }
   if (html === '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">') html += '<p style="color:#94a3b8">No usage data yet</p>';
