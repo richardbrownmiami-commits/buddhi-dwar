@@ -200,6 +200,13 @@ async function getAllProviders(): Promise<ProviderConfig[]> {
   const custom = await getCustomProviders();
   return [...PROVIDERS, ...custom];
 }
+async function saveRateLimit(provider: string, keyId: string, resp: Response) {
+  const rl: Record<string, string> = {};
+  for (const [k, v] of resp.headers) {
+    if (k.startsWith("x-ratelimit-") || k.startsWith("X-RateLimit-")) rl[k.toLowerCase()] = v;
+  }
+  if (Object.keys(rl).length) await _BF.put("ratelimit:" + provider + ":" + keyId, JSON.stringify(rl), { expirationTtl: 86400 });
+}
 async function trackKeyUsage(rl: ReqLog) {
   const key = "keyusage:" + rl.provider + ":" + rl.keyId + ":" + getToday();
   const raw = await _BF.get(key, "json");
@@ -407,6 +414,7 @@ async function handleProxy(req: Request): Promise<Response> {
           await logRequest(rl);
           await updateAnalytics(rl);
           await trackKeyUsage(rl);
+          await saveRateLimit(p.name, ke.id, resp);
           if (resp.ok) {
             if (tryModel !== model) fellback = true;
             await setRotation(p.name, (selected.index + 1) % keys.length);
@@ -691,7 +699,8 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
         const uk = "keyusage:" + p.name + ":" + k.id + ":" + today;
         const raw = await _BF.get(uk, "json");
         const u = (raw as KeyUsage) || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0 };
-        result[p.name].keys.push({ id: k.id, label: k.label, addedAt: k.addedAt, usage: u, monthCost: 0 });
+        const rlData = await _BF.get("ratelimit:" + p.name + ":" + k.id, "json");
+        result[p.name].keys.push({ id: k.id, label: k.label, addedAt: k.addedAt, usage: u, monthCost: 0, rateLimit: rlData });
         totals.requests += u.requests; totals.successes += u.successes; totals.failures += u.failures;
         totals.promptTokens += u.promptTokens; totals.completionTokens += u.completionTokens; totals.cost += u.cost;
         totals.keys++;
