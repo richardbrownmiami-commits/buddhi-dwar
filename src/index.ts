@@ -14,6 +14,14 @@ interface EvictionLog { id: string; provider: string; keyId: string; reason: str
 interface ReqLog { model: string; provider: string; keyId: string; status: number; latencyMs: number; timestamp: number; promptTokens?: number; completionTokens?: number; cost?: number; }
 interface DailyAnalytics { date: string; requests: number; successes: number; failures: number; totalLatencyMs: number; totalPromptTokens: number; totalCompletionTokens: number; totalCost: number; providerStats: Record<string, { requests: number; successes: number; failures: number; totalLatencyMs: number; totalPromptTokens: number; totalCompletionTokens: number; totalCost: number }>; }
 type Strategy = "round-robin" | "lowest-latency" | "least-loaded";
+interface ProviderConfig { name: string; baseUrl: string; type: "openai" | "google"; models: string[]; }
+interface KeyUsage { date: string; requests: number; successes: number; failures: number; promptTokens: number; completionTokens: number; cost: number; }
+const DEFAULT_PROVIDER_LIMITS: Record<string, { dailyRequests: number; dailyTokens: number; monthlyCostUSD: number }> = {
+  groq: { dailyRequests: 14400, dailyTokens: 1000000, monthlyCostUSD: 0 },
+  google: { dailyRequests: 1500, dailyTokens: 1000000, monthlyCostUSD: 0 },
+  mistral: { dailyRequests: 5000, dailyTokens: 500000, monthlyCostUSD: 0 },
+  openrouter: { dailyRequests: 500, dailyTokens: 200000, monthlyCostUSD: 5 },
+};
 
 /* ── Rate Limiting ── */
 interface RateLimitConfig { maxRequests: number; windowMs: number; }
@@ -177,6 +185,34 @@ const PROVIDERS = [
   { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-small-latest"] },
 ];
 
+async function getCustomProviders(): Promise<ProviderConfig[]> {
+  const raw = await _BF.get("providers:custom", "json");
+  return (raw as any) || [];
+}
+async function setCustomProviders(ps: ProviderConfig[]) {
+  await _BF.put("providers:custom", JSON.stringify(ps));
+}
+async function getAllProviders(): Promise<ProviderConfig[]> {
+  const custom = await getCustomProviders();
+  return [...PROVIDERS, ...custom];
+}
+async function trackKeyUsage(rl: ReqLog) {
+  const key = "keyusage:" + rl.provider + ":" + rl.keyId + ":" + getToday();
+  const raw = await _BF.get(key, "json");
+  const u: KeyUsage = (raw as any) || { date: getToday(), requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0 };
+  u.requests++;
+  if (rl.status >= 200 && rl.status < 400) u.successes++; else u.failures++;
+  u.promptTokens += rl.promptTokens || 0; u.completionTokens += rl.completionTokens || 0; u.cost += rl.cost || 0;
+  await _BF.put(key, JSON.stringify(u), { expirationTtl: 86400 * 90 });
+}
+async function getProviderLimits(): Promise<Record<string, { dailyRequests: number; dailyTokens: number; monthlyCostUSD: number }>> {
+  const raw = await _BF.get("providers:limits", "json");
+  return (raw as any) || DEFAULT_PROVIDER_LIMITS;
+}
+async function setProviderLimits(limits: any) {
+  await _BF.put("providers:limits", JSON.stringify(limits));
+}
+
 /* ── Google Gemini Format ── */
 function oaiToGemini(body: any, model: string) {
   const contents = (body.messages || []).filter((m: any) => m.role !== 'system').map((m: any) => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content || '' }] }));
@@ -320,8 +356,9 @@ async function handleProxy(req: Request): Promise<Response> {
     const body = await req.json() as any;
     const model = body.model || "";
     const isStream = body.stream === true;
-    let candidates = PROVIDERS.filter((pr: any) => pr.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(model.toLowerCase().split("/").pop() || "")));
-    if (!candidates.length) candidates = PROVIDERS.sort((a: any) => a.name === "openrouter" ? -1 : 0);
+    const allProvs = await getAllProviders();
+    let candidates = allProvs.filter((pr: any) => pr.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(model.toLowerCase().split("/").pop() || "")));
+    if (!candidates.length) candidates = allProvs.sort((a: any) => a.name === "openrouter" ? -1 : 0);
     const cacheCfg = await getCacheCfg();
     if (cacheCfg.enabled && !isStream) {
       const ck = cacheKey(body);
@@ -365,6 +402,7 @@ async function handleProxy(req: Request): Promise<Response> {
           const rl: ReqLog = { model: tryModel, provider: p.name, keyId: ke.id, status: resp.status, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens, cost };
           await logRequest(rl);
           await updateAnalytics(rl);
+          await trackKeyUsage(rl);
           if (resp.ok) {
             if (tryModel !== model) fellback = true;
             await setRotation(p.name, (selected.index + 1) % keys.length);
@@ -407,7 +445,7 @@ async function handleProxy(req: Request): Promise<Response> {
           const promptText = JSON.stringify(body.messages || "");
           const promptTokens = estimateTokens(promptText);
           const rl: ReqLog = { model: tryModel, provider: p.name, keyId: ke.id, status: 0, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens: 0, cost: estimateCost(tryModel, promptTokens, 0) };
-          await logRequest(rl); await updateAnalytics(rl);
+          await logRequest(rl); await updateAnalytics(rl); await trackKeyUsage(rl);
           h.failCount++; h.lastError = tryModel + " " + e.message; h.lastCheck = Date.now(); h.consecutiveFailures++;
           if (h.consecutiveFailures >= 5) h.cbState = "open";
           await setHealth(p.name, ke.id, h);
@@ -427,7 +465,7 @@ async function handleProxy(req: Request): Promise<Response> {
 
 async function handleModels(): Promise<Response> {
   const all: any[] = [];
-  for (const p of PROVIDERS) {
+  for (const p of await getAllProviders()) {
     all.push(...p.models.map((m: string) => ({ id: m, provider: p.name, object: "model", created: Date.now(), owned_by: "bifrost" })));
   }
   return new Response(JSON.stringify({ object: "list", data: all }), { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
@@ -438,7 +476,29 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
   const url = new URL(req.url);
 
   if (path === "/admin/api/providers") {
-    if (req.method === "GET") return new Response(JSON.stringify(PROVIDERS), { headers: { "content-type": "application/json" } });
+    if (req.method === "GET") {
+      const merged = await getAllProviders();
+      const limits = await getProviderLimits();
+      return new Response(JSON.stringify({ providers: merged, limits }), { headers: { "content-type": "application/json" } });
+    }
+    if (req.method === "POST") {
+      const body = await req.json() as any;
+      if (body.action === "set-limits") { await setProviderLimits(body.limits); return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } }); }
+      if (!body.name || !body.baseUrl || !body.type) return new Response(JSON.stringify({ error: "name, baseUrl, type required" }), { status: 400, headers: { "content-type": "application/json" } });
+      const custom = await getCustomProviders();
+      const idx = custom.findIndex((p: any) => p.name === body.name);
+      const entry: ProviderConfig = { name: body.name, baseUrl: body.baseUrl, type: body.type, models: body.models || [] };
+      if (idx >= 0) custom[idx] = entry; else custom.push(entry);
+      await setCustomProviders(custom);
+      return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
+    }
+    if (req.method === "DELETE") {
+      const name = url.searchParams.get("name");
+      if (!name) return new Response(JSON.stringify({ error: "name required" }), { status: 400, headers: { "content-type": "application/json" } });
+      const custom = await getCustomProviders();
+      await setCustomProviders(custom.filter((p: any) => p.name !== name));
+      return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
+    }
   }
 
   if (path === "/admin/api/keys") {
@@ -457,7 +517,7 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
         const m = k.name.match(/^prov:([^:]+):keys$/);
         if (m && !seen.has(m[1])) { seen.add(m[1]); result[m[1]] = await getKeys(m[1]); }
       }
-      for (const p of PROVIDERS) {
+      for (const p of await getAllProviders()) {
         if (!seen.has(p.name)) { result[p.name] = await getKeys(p.name); seen.add(p.name); }
       }
       for (const pname of Object.keys(result)) result[pname] = result[pname].map((ke: any) => ({ ...ke, apiKey: maskKey(ke.apiKey || "") }));
@@ -469,7 +529,8 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       if (!pname || !apiKey) return new Response(JSON.stringify({ error: "provider and apiKey required" }), { status: 400, headers: { "content-type": "application/json" } });
       const keys = await getKeys(pname);
       const id = Date.now().toString(36);
-      const p = PROVIDERS.find((pr: any) => pr.name === pname);
+      const allProvs = await getAllProviders();
+      const p = allProvs.find((pr: any) => pr.name === pname);
       let models: string[] = [];
       if (p) {
         try {
@@ -528,7 +589,7 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
   if (path === "/admin/api/strategy") {
     if (req.method === "GET") {
       const result: any = {};
-      for (const p of PROVIDERS) result[p.name] = await getStrategy(p.name);
+      for (const p of await getAllProviders()) result[p.name] = await getStrategy(p.name);
       return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
     }
     if (req.method === "POST") {
@@ -566,7 +627,7 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     const today = getToday();
     const reqsToday = await getStat(today);
     let totalKeys = 0; let activeKeys = 0; let deadKeys = 0; let warmingKeys = 0; let expiredKeys = 0;
-    for (const p of PROVIDERS) {
+    for (const p of await getAllProviders()) {
       const keys = await getKeys(p.name);
       totalKeys += keys.length;
       for (const k of keys) {
@@ -614,6 +675,22 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
   }
 
+  if (path === "/admin/api/key-usage") {
+    const today = getToday();
+    const result: Record<string, any> = {};
+    const limits = await getProviderLimits();
+    for (const p of await getAllProviders()) {
+      const keys = await getKeys(p.name);
+      result[p.name] = { keys: [], limit: limits[p.name] || { dailyRequests: 999999, dailyTokens: 999999999, monthlyCostUSD: 999 } };
+      for (const k of keys) {
+        const uk = "keyusage:" + p.name + ":" + k.id + ":" + today;
+        const raw = await _BF.get(uk, "json");
+        result[p.name].keys.push({ id: k.id, label: k.label, addedAt: k.addedAt, usage: (raw as KeyUsage) || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0 }, monthCost: 0 });
+      }
+    }
+    return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
+  }
+
   if (path === "/admin/api/test-key") {
     const body = await req.json() as any;
     const { pname, id } = body;
@@ -621,7 +698,8 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     const keys = await getKeys(pname);
     const ke = keys.find((k: any) => k.id === id);
     if (!ke) return new Response(JSON.stringify({ error: "key not found" }), { status: 404, headers: { "content-type": "application/json" } });
-    const p = PROVIDERS.find((pr: any) => pr.name === pname);
+    const allProvs = await getAllProviders();
+    const p = allProvs.find((pr: any) => pr.name === pname);
     if (!p) return new Response(JSON.stringify({ error: "provider not found" }), { status: 404, headers: { "content-type": "application/json" } });
     try {
       const hdrs: any = { "Content-Type": "application/json" };
@@ -657,28 +735,26 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     const keys = await getKeys(pname);
     const ke = keys.find((k: any) => k.id === id);
     if (!ke) return new Response(JSON.stringify({ error: "key not found" }), { status: 404, headers: { "content-type": "application/json" } });
-    const p = PROVIDERS.find((pr: any) => pr.name === pname);
+    const allProvs = await getAllProviders();
+    const p = allProvs.find((pr: any) => pr.name === pname);
     if (!p) return new Response(JSON.stringify({ error: "provider not found" }), { status: 404, headers: { "content-type": "application/json" } });
     try {
-      const hdrs: any = {};
+      const hdrs: any = { "Content-Type": "application/json" };
       const isGoogle = p.type === "google";
       if (isGoogle) hdrs["x-goog-api-key"] = ke.apiKey;
       else if (p.type === "openai") hdrs["Authorization"] = "Bearer " + ke.apiKey;
-      const resp = isGoogle
-        ? await fetch(p.baseUrl + "/v1beta/models?key=" + ke.apiKey)
-        : await fetch(p.baseUrl + "/v1/models", { headers: hdrs });
+      const url = isGoogle ? p.baseUrl + "/v1beta/models" : p.baseUrl + "/v1/models";
+      const resp = await fetch(url, { headers: hdrs });
       if (!resp.ok) return new Response(JSON.stringify({ error: "HTTP " + resp.status }), { status: 502, headers: { "content-type": "application/json" } });
-      const data = await resp.json() as any;
-      const models = isGoogle ? (data.models || []).map((m: any) => m.name).filter((n: string) => n.includes("gemini")) : (data.data || []).map((m: any) => m.id);
-      return new Response(JSON.stringify({ ok: true, models }), { headers: { "content-type": "application/json" } });
-    } catch (e: any) {
-      return new Response(JSON.stringify({ ok: false, error: e.message }), { headers: { "content-type": "application/json" } });
-    }
+      const j = await resp.json() as any;
+      const models = (j.data || []).map((m: any) => m.id || m.name).filter(Boolean);
+      return new Response(JSON.stringify({ models }), { headers: { "content-type": "application/json" } });
+    } catch (e: any) { return new Response(JSON.stringify({ error: e.message }), { status: 500, headers: { "content-type": "application/json" } }); }
   }
 
   if (path === "/admin/api/health-check") {
     const results: any[] = [];
-    for (const p of PROVIDERS) {
+    for (const p of await getAllProviders()) {
       const keys = await getKeys(p.name);
       for (const k of keys) {
         const h = await getHealth(p.name, k.id);
@@ -707,7 +783,8 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     const keys = await getKeys(pname);
     const ke = keys.find((k: any) => k.id === id);
     if (!ke) return new Response(JSON.stringify({ error: "key not found" }), { status: 404, headers: { "content-type": "application/json" } });
-    const p = PROVIDERS.find((pr: any) => pr.name === pname);
+    const allProvs2 = await getAllProviders();
+    const p = allProvs2.find((pr: any) => pr.name === pname);
     if (!p) return new Response(JSON.stringify({ error: "provider not found" }), { status: 404, headers: { "content-type": "application/json" } });
     try {
       const hdrs: any = {};
@@ -721,6 +798,9 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       const data = await resp.json() as any;
       const models = isGoogle ? (data.models || []).map((m: any) => m.name).filter((n: string) => n.includes("gemini")) : (data.data || []).map((m: any) => m.id);
       p.models = models.slice(0, 10);
+      const custom = await getCustomProviders();
+      const ci = custom.findIndex((cp: any) => cp.name === pname);
+      if (ci >= 0) { custom[ci].models = p.models; await setCustomProviders(custom); }
       return new Response(JSON.stringify({ ok: true, models: p.models }), { headers: { "content-type": "application/json" } });
     } catch (e: any) {
       return new Response(JSON.stringify({ ok: false, error: e.message }), { headers: { "content-type": "application/json" } });
@@ -731,7 +811,7 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
 }
 
 async function handleCron() {
-  for (const p of PROVIDERS) {
+  for (const p of await getAllProviders()) {
     let keys = await getKeys(p.name);
     let changed = false;
     const cutoff = Date.now() - EVICT_DAYS * DAY_MS;
