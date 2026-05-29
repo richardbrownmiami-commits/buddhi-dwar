@@ -817,14 +817,6 @@ async function handleCron() {
 /* ── Hono App ── */
 const app = new Hono();
 
-app.use("*", async (c, next) => {
-  const env = c.env as Env;
-  _BF = env.BF; _ASSETS = env.ASSETS as Fetcher;
-  _WEBHOOK_URL = env.WEBHOOK_URL || "";
-  _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
-  await next();
-});
-
 app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
 app.post("/chat/completions", async (c) => handleProxy(c.req));
 app.get("/v1/models", async (c) => handleModels());
@@ -856,7 +848,11 @@ app.get("/admin/", async (c) => c.redirect("/admin"));
 app.all("/admin/*", async (c) => handleAdminApi(c.req, c.req.path));
 
 export default {
-  fetch: app.fetch,
+  async fetch(req: Request, env: Env, ctx: ExecutionContext) {
+    _BF = env.BF; _ASSETS = env.ASSETS as Fetcher;
+    _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
+    return app.fetch(req, env, ctx);
+  },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
     _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
     await handleCron();
