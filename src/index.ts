@@ -792,12 +792,14 @@ app.post("/admin/api/login", async (c) => {
 
 app.get("/admin", async (c) => {
   if (_ASSETS) {
-    const resp = await _ASSETS.fetch("https://fake.host/admin.html?v=4");
+    const resp = await _ASSETS.fetch("https://fake.host/admin.html?t=" + Date.now());
     const hdrs = new Headers(resp.headers);
     if (!hdrs.get("content-type")?.includes("charset")) hdrs.set("content-type", "text/html; charset=utf-8");
     hdrs.set("Cache-Control", "no-cache, no-store, must-revalidate");
     hdrs.set("Pragma", "no-cache"); hdrs.set("Expires", "0");
-    return new Response(resp.body, { status: resp.status, headers: hdrs });
+    const adminResp = new Response(resp.body, { status: resp.status, headers: hdrs });
+    adminResp.cf = { cacheEverything: false, cacheTtl: 0 };
+    return adminResp;
   }
   return c.html("<!DOCTYPE html><html><body><h1>Assets unavailable</h1></body></html>");
 });
