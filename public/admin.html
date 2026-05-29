@@ -236,15 +236,16 @@ async function addGw(){
   await api('/gateway-keys',{method:'POST',body:JSON.stringify({word})});
   showToast('Added','success'); renderGateway();
 }
-function genGwKey() {
+async function genGwKey() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
   let key = '';
   for (let i = 0; i < 32; i++) {
     if (i > 0 && i % 8 === 0) key += '-';
     key += chars.charAt(Math.floor(Math.random() * chars.length));
   }
-  document.getElementById('gw-word').value = key;
-  showToast('Key generated: ' + key, 'success');
+  const r = await api('/gateway-keys', { method: 'POST', body: JSON.stringify({ word: key }) });
+  if (r.ok) { showToast('Key generated and saved: ' + key, 'success'); renderGateway(); }
+  else { showToast('Failed to save key', 'error'); }
 }
 async function renderStrategy() {
   const s = await api('/strategy');

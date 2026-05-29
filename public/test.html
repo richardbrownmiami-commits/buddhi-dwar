@@ -31,8 +31,8 @@ input[type=text]:focus{outline:none;border-color:#58a6ff}
 <body>
 <div class="container">
 <h1>BD Gateway</h1>
-<p>Enter your key and message â€” we'll find a working model automatically</p>
-<input type="text" id="key" value="lfrvr5fl-aecel39x-oz33z4ov-lzs2f26l" placeholder="Gateway API key">
+<p>Enter your gateway API key and message — we'll find a working model automatically</p>
+<input type="text" id="key" value="" placeholder="Paste your gateway key here (generate one in admin → Gateway Keys)">
 <div id="chat"></div>
 <div class="row">
   <input type="text" id="msg" placeholder="Type a message..." onkeydown="if(event.key==='Enter')send()">
@@ -64,7 +64,7 @@ async function send() {
         headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json'},
         body:JSON.stringify({model:m,messages:history,stream:true})
       });
-      if (!res.ok) { lastErr = await res.text(); info(m + ' failed'); continue; }
+      if (!res.ok) { const errText = await res.text(); lastErr = errText; info(m + ' failed'); if (res.status === 403 || res.status === 401) { try { const j = JSON.parse(errText); lastErr = j.error || errText; } catch {} info('✗ ' + lastErr.slice(0, 80)); break; } continue; }
       let content = '', div = addBotDiv();
       const reader = res.body.getReader(), dec = new TextDecoder();
       let buf = '';
@@ -80,7 +80,7 @@ async function send() {
         }
         buf = buf.split('\n').slice(-1)[0]||'';
       }
-      info('âœ“ ' + m);
+      info('✓ ' + m);
       history.push({role:'assistant',content});
       toggle(true);
       return;
