@@ -69,6 +69,7 @@ pre{background:rgba(15,23,42,.6);padding:18px;border-radius:12px;overflow:auto;f
 .pagination button{padding:6px 14px;font-size:12px;border-radius:8px}
 summary{color:#38bdf8;font-weight:600;cursor:pointer;padding:8px 0;font-size:14px}
 details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:1px solid rgba(56,189,248,.06);margin-bottom:16px}
+.page-desc{background:rgba(56,189,248,.06);border-left:3px solid #38bdf8;padding:12px 16px;border-radius:0 10px 10px 0;margin-bottom:20px;font-size:13px;color:#94a3b8;line-height:1.6}
 @media(max-width:768px){.sidebar{width:60px;padding:16px 0}.sidebar h1,.sidebar a span:last-child{display:none}.sidebar a{justify-content:center;padding:11px 0;margin:2px 6px}.main{padding:20px}.grid-2{grid-template-columns:1fr}}
 @media(max-width:480px){.sidebar{width:48px}.main{padding:16px}.cards{grid-template-columns:1fr 1fr}}
 </style>
@@ -171,6 +172,7 @@ async function renderOverview() {
       <h2 style="margin:0;border:none;padding:0">Dashboard Overview</h2>
       <span style="font-size:12px;color:#7488a8">${new Date().toLocaleTimeString()}</span>
     </div>
+    <div class="page-desc">Monitor overall gateway performance: request count, key health by status (active/dead/expired/warming), estimated cost and token usage across all providers over the last 7 days.</div>
     <div class="cards">
       <div class="card" style="background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div class="num">${s.requestsToday || 0}</div><div class="lbl">Requests Today</div></div>
       <div class="card" style="background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.05))"><div class="num">${s.totalKeys || 0}</div><div class="lbl">Total Keys</div></div>
@@ -224,8 +226,8 @@ async function renderKeys() {
       rows += '<tr><td>' + esc(pname) + '</td><td style="font-size:11px;color:#94a3b8">' + esc(k.label||'') + '</td>' +
         '<td><code style="font-size:11px;color:#94a3b8;user-select:none">' + masked + '</code></td>' +
         '<td><span class="tag warning" id="st-' + esc(k.id) + '">pending</span></td>' +
-        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + esc(ms || '—') + '</td>' +
-        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : '—') + '</td>' +
+        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + esc(ms || 'â€”') + '</td>' +
+        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : 'â€”') + '</td>' +
 '<td><button class="primary" onclick="copyKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Copy</button> ' +
 '<button class="secondary" onclick="testKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Test</button> ' +
 '<button class="secondary" onclick="reDetectKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Models</button> ' +
@@ -233,6 +235,8 @@ async function renderKeys() {
     }
   }
   setContent(`
+    <h2>API Keys</h2>
+    <div class="page-desc">Manage provider API keys for Groq, Google Gemini, Mistral, OpenRouter, DeepSeek, and Together AI. Keys that fail 5+ consecutive requests are circuit-broken. Keys hit by rate-limit (429) get a 1-minute cooldown before retry.</div>
     <div class="form-row">
       <div class="form-group"><label>Provider</label><select id="kp-provider"><option>groq</option><option>google</option><option>mistral</option><option>openrouter</option><option>deepseek</option><option>together</option></select></div>
       <div class="form-group"><label>API Key</label><input id="kp-key" placeholder="sk-..."></div>
@@ -283,6 +287,8 @@ async function renderGateway() {
     '<td><button onclick="toggleGw(this)" style="padding:4px 10px;font-size:12px">' + (k.enabled?'Disable':'Enable') + '</button>' +
     '<button class="danger" onclick="deleteGw(this)" style="padding:4px 10px;font-size:12px">Del</button></td></tr>').join('');
   setContent(`
+    <h2>Gateway Keys</h2>
+    <div class="page-desc">Create API keys for external clients that proxy through this gateway. Each key has usage tracking and can be enabled/disabled independently. Generate a random key or create a custom word-based token.</div>
     <div class="form-row">
       <div class="form-group"><label>Gateway Key (word/token)</label><input id="gw-word" placeholder="my-app-key"></div>
       <button class="primary" onclick="addGw()">Add Key</button>
@@ -313,7 +319,7 @@ async function genGwKey() {
 }
 async function renderStrategy() {
   const s = await api('/strategy');
-  let html = '<div class="cards">';
+  let html = '<h2>Routing Strategy</h2><div class="page-desc">Choose how the gateway selects between multiple API keys for the same provider. Round-robin cycles evenly, lowest-latency picks fastest, least-loaded picks lowest failure ratio.</div><div class="cards">';
   for (const [prov, strat] of Object.entries(s)) {
     html += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:8px">' + esc(prov) + '</h3>' +
       '<p style="font-size:13px;color:#94a3b8">Strategy: <b style="color:#e2e8f0">' + esc(strat) + '</b></p></div>';
@@ -334,14 +340,15 @@ async function updateStr() {
 async function renderAnalytics() {
   const a = await api('/analytics?days=30');
   if(!Array.isArray(a)||a.length===0){setContent('<p>No analytics data</p>');return}
-  let rows = a.map(d => '<tr><td>' + (d.date||'—') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
+  let rows = a.map(d => '<tr><td>' + (d.date||'â€”') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
     '<td>' + (d.successes||0) + '</td><td>' + ((d.totalPromptTokens||0).toLocaleString()) + '</td>' +
     '<td>' + ((d.totalCompletionTokens||0).toLocaleString()) + '</td><td>$' + ((d.totalCost||0).toFixed(4)) + '</td></tr>').join('');
   let totalReq=0,totalFail=0,totalCost=0,totalPrompt=0,totalComp=0;
   a.forEach(d=>{totalReq+=d.requests||0;totalFail+=d.failures||0;totalCost+=d.totalCost||0;totalPrompt+=d.totalPromptTokens||0;totalComp+=d.totalCompletionTokens||0;});
   setContent(`
+    <h2>Analytics</h2>
+    <div class="page-desc">View request metrics over the last 30 days: volume, success/failure rates, token usage, and estimated cost per provider. Use the Export CSV button for offline analysis.</div>
     <div class="cards">
-      <div class="card"><div class="num">${totalReq}</div><div class="lbl">Requests (30d)</div></div>
       <div class="card"><div class="num" style="color:#fca5a5">${totalFail}</div><div class="lbl">Errors (30d)</div></div>
       <div class="card"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl">Cost (30d)</div></div>
       <div class="card"><div class="num">${(totalPrompt+totalComp).toLocaleString()}</div><div class="lbl">Tokens (30d)</div></div>
@@ -357,7 +364,7 @@ async function renderUsage() {
   const raw = await api('/key-usage');
   const data = raw.providers || raw;
   const totals = raw.totals || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0, providers: 0, keys: 0 };
-  let html = '<div class="cards" style="margin-bottom:20px">' +
+  let html = '<h2>Usage &amp; Limits</h2><div class="page-desc">Monitor today\'s request volume, token consumption, and estimated cost per provider. Progress bars show usage against daily quotas. Rate-limit headers from upstream providers are displayed per key.</div><div class="cards" style="margin-bottom:20px">' +
     '<div class="card" style="background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div class="num">' + totals.requests + '</div><div class="lbl">Total Requests Today</div></div>' +
     '<div class="card" style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(22,163,74,.05))"><div class="num" style="color:#86efac">' + totals.successes + '</div><div class="lbl" style="color:#86efac">Successes</div></div>' +
     '<div class="card" style="background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(220,38,38,.05))"><div class="num" style="color:#fca5a5">' + totals.failures + '</div><div class="lbl" style="color:#fca5a5">Failures</div></div>' +
@@ -415,7 +422,9 @@ async function renderSettings() {
     '</td><td><input id="lim-dtok-' + esc(k) + '" type="number" value="' + (v.dailyTokens||999999999) + '" style="width:120px;padding:6px 8px;font-size:12px">' +
     '</td><td><input id="lim-mcost-' + esc(k) + '" type="number" value="' + (v.monthlyCostUSD||0) + '" style="width:100px;padding:6px 8px;font-size:12px"></td></tr>').join('');
   setContent(`
-    <h2 style="margin-top:32px">Custom Providers</h2>
+    <h2>Settings</h2>
+    <div class="page-desc">Configure custom providers (OpenAI-compatible or Google-style) with their base URLs and model lists. Set daily request/token limits per provider for usage tracking and quota enforcement.</div>
+    <h2 style="margin-top:16px">Custom Providers</h2>
     <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Add OpenAI-compatible or Google-style providers. They auto-register in the model list, proxy, and routing.</p>
     <div class="form-row">
       <div class="form-group"><label>Name</label><input id="cp-name" placeholder="anthropic"></div>
@@ -460,20 +469,22 @@ async function saveLimits() {
   showToast('Limits saved', 'success'); renderSettings();
 }
 async function renderHealth() {
-  setContent('<p>Running health checks...</p>');
+  setContent('<h2>Health Check</h2><div class="page-desc">Probe each provider key to verify connectivity and authentication. Shows HTTP status, circuit-breaker state, and any error messages returned by the upstream API.</div><p>Running health checks...</p>');
   const h = await api('/health-check');
   let cards = '';
   for(const item of h) {
     const ok = item.status === 'ok' ? 'ok' : 'fail';
     cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px">' + esc(item.provider||'') + ' / ' + esc((item.keyId||'').slice(0,8)) + '</h3>' +
       '<p><span class="tag ' + ok + '">' + esc(item.status||'?') + '</span></p>' +
-      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'—') + ' | CB: ' + esc(item.cbState||'—') + '</p>' +
+      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'â€”') + ' | CB: ' + esc(item.cbState||'â€”') + '</p>' +
       (item.error ? '<pre style="font-size:11px;margin-top:4px">' + esc(item.error) + '</pre>' : '') + '</div>';
   }
   setContent('<div class="cards">' + (cards || '<p>No results</p>') + '</div>');
 }
 async function renderSetup() {
   setContent(`
+    <h2>Setup Guide</h2>
+    <div class="page-desc">Step-by-step guide for connecting clients to the gateway. Generate a Gateway Key, then use it as the Bearer token with any OpenAI-compatible client. Supports chat completions, embeddings, and Anthropic-style messages.</div>
     <h2>Your Gateway URL</h2>
     <pre style="font-size:14px">POST https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions
 Authorization: Bearer &lt;your-gateway-key&gt;</pre>
