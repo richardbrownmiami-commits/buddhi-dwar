@@ -21,6 +21,8 @@ const DEFAULT_PROVIDER_LIMITS: Record<string, { dailyRequests: number; dailyToke
   google: { dailyRequests: 1500, dailyTokens: 1000000, monthlyCostUSD: 0 },
   mistral: { dailyRequests: 5000, dailyTokens: 500000, monthlyCostUSD: 0 },
   openrouter: { dailyRequests: 500, dailyTokens: 200000, monthlyCostUSD: 5 },
+  deepseek: { dailyRequests: 5000, dailyTokens: 1000000, monthlyCostUSD: 0 },
+  together: { dailyRequests: 5000, dailyTokens: 1000000, monthlyCostUSD: 0 },
 };
 
 /* ── Rate Limiting ── */
@@ -183,6 +185,8 @@ const PROVIDERS = [
   { name: "google", baseUrl: "https://generativelanguage.googleapis.com", type: "google", models: ["gemini-2.0-flash"] },
   { name: "openrouter", baseUrl: "https://openrouter.ai/api", type: "openai", models: ["meta-llama/llama-3.3-70b-instruct:free", "deepseek/deepseek-v4-flash:free", "meta-llama/llama-3.2-3b-instruct:free"] },
   { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-small-latest"] },
+  { name: "deepseek", baseUrl: "https://api.deepseek.com/v1", type: "openai", models: ["deepseek-chat", "deepseek-reasoner"] },
+  { name: "together", baseUrl: "https://api.together.xyz/v1", type: "openai", models: ["meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"] },
 ];
 
 async function getCustomProviders(): Promise<ProviderConfig[]> {
@@ -679,16 +683,22 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     const today = getToday();
     const result: Record<string, any> = {};
     const limits = await getProviderLimits();
+    const totals = { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0, providers: 0, keys: 0 };
     for (const p of await getAllProviders()) {
       const keys = await getKeys(p.name);
       result[p.name] = { keys: [], limit: limits[p.name] || { dailyRequests: 999999, dailyTokens: 999999999, monthlyCostUSD: 999 } };
       for (const k of keys) {
         const uk = "keyusage:" + p.name + ":" + k.id + ":" + today;
         const raw = await _BF.get(uk, "json");
-        result[p.name].keys.push({ id: k.id, label: k.label, addedAt: k.addedAt, usage: (raw as KeyUsage) || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0 }, monthCost: 0 });
+        const u = (raw as KeyUsage) || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0 };
+        result[p.name].keys.push({ id: k.id, label: k.label, addedAt: k.addedAt, usage: u, monthCost: 0 });
+        totals.requests += u.requests; totals.successes += u.successes; totals.failures += u.failures;
+        totals.promptTokens += u.promptTokens; totals.completionTokens += u.completionTokens; totals.cost += u.cost;
+        totals.keys++;
       }
+      if (keys.length) totals.providers++;
     }
-    return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
+    return new Response(JSON.stringify({ providers: result, totals }), { headers: { "content-type": "application/json" } });
   }
 
   if (path === "/admin/api/test-key") {
