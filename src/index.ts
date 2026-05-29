@@ -6,6 +6,7 @@ let _ASSETS: Fetcher;
 let _WEBHOOK_URL = "";
 let __MASTER_KEY = "bf-master-kun-2026";
 let _ADMIN_PW = "2200";
+let _ADMIN_HTML_VER = 0;
 
 interface KeyEntry { id: string; apiKey: string; label: string; addedAt: number; models?: string[]; }
 type CBState = "closed" | "open" | "half-open";
@@ -25,7 +26,7 @@ const DEFAULT_PROVIDER_LIMITS: Record<string, { dailyRequests: number; dailyToke
   together: { dailyRequests: 5000, dailyTokens: 1000000, monthlyCostUSD: 0 },
 };
 
-/* ── Rate Limiting ── */
+/* â”€â”€ Rate Limiting â”€â”€ */
 interface RateLimitConfig { maxRequests: number; windowMs: number; }
 const DEFAULT_RATE_LIMIT: RateLimitConfig = { maxRequests: 60, windowMs: 60000 };
 
@@ -202,7 +203,7 @@ async function setProviderLimits(limits: any) {
   await _BF.put("providers:limits", JSON.stringify(limits));
 }
 
-/* ── Google Gemini Format ── */
+/* â”€â”€ Google Gemini Format â”€â”€ */
 function oaiToGemini(body: any, model: string) {
   const contents = (body.messages || []).filter((m: any) => m.role !== 'system').map((m: any) => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content || '' }] }));
   const sys = (body.messages || []).find((m: any) => m.role === 'system');
@@ -222,7 +223,7 @@ function geminiToOai(data: any, model: string) {
   return { id: 'chatcmpl-' + Date.now(), object: 'chat.completion', created: Math.floor(Date.now() / 1000), model, choices, usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
 }
 
-/* ── Token Counting & Pricing ── */
+/* â”€â”€ Token Counting & Pricing â”€â”€ */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-2.0-flash": { input: 0.1, output: 0.4 },
   "llama-3.3-70b": { input: 0.59, output: 0.79 }, "llama-3.1-8b": { input: 0.05, output: 0.08 },
@@ -289,7 +290,7 @@ async function selectKey(provider: string, keys: KeyEntry[], strategy: Strategy)
   return null;
 }
 
-/* ── Streaming Timeout ── */
+/* â”€â”€ Streaming Timeout â”€â”€ */
 function streamWithTimeout(readable: ReadableStream, timeoutMs: number = 60000): ReadableStream {
   const reader = readable.getReader();
   return new ReadableStream({
@@ -320,14 +321,17 @@ async function handleProxy(req: Request): Promise<Response> {
       return new Response(JSON.stringify({ error: "rate limit exceeded", retryAfterMs: rl.resetMs }), { status: 429, headers: { "content-type": "application/json", "Retry-After": String(Math.ceil(rl.resetMs / 1000)), "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": String(rl.resetMs) } });
     }
     const body = await req.json() as any;
-    const model = body.model || "";
+    const models = Array.isArray(body.model) ? body.model : [body.model || ""];
     const isStream = body.stream === true;
     const allProvs = await getAllProviders();
-    let candidates = allProvs.filter((pr: any) => pr.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(model.toLowerCase().split("/").pop() || "")));
-    if (!candidates.length) candidates = allProvs.sort((a: any) => a.name === "openrouter" ? -1 : 0);
     const lastErrors: string[] = [];
     let hasRateLimit = false;
-    for (const p of candidates) {
+    const modelIsArray = Array.isArray(body.model);
+    for (const model of models) {
+      let candidates = allProvs.filter((pr: any) => pr.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase()) || m.toLowerCase().includes(model.toLowerCase().split("/").pop() || "")));
+      if (!candidates.length && !modelIsArray) candidates = allProvs.sort((a: any) => a.name === "openrouter" ? -1 : 0);
+      if (!candidates.length) { lastErrors.push(model + ":no_provider"); continue; }
+      for (const p of candidates) {
       const keys = await getKeys(p.name);
       if (!keys.length) { lastErrors.push(p.name + ":no_keys"); continue; }
       const strategy = await getStrategy(p.name);
@@ -408,6 +412,7 @@ async function handleProxy(req: Request): Promise<Response> {
           break;
         }
       }
+    }
     }
     const finalStatus = hasRateLimit ? 429 : 502;
     const finalError = hasRateLimit ? "upstream rate limited, retry later" : "all providers failed";
@@ -771,7 +776,7 @@ async function handleCron() {
   }
 }
 
-/* ── Hono App ── */
+/* â”€â”€ Hono App â”€â”€ */
 const app = new Hono();
 
 app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
@@ -792,7 +797,8 @@ app.post("/admin/api/login", async (c) => {
 
 app.get("/admin", async (c) => {
   if (_ASSETS) {
-    const resp = await _ASSETS.fetch("https://fake.host/admin.html");
+    _ADMIN_HTML_VER = _ADMIN_HTML_VER || Date.now();
+    const resp = await _ASSETS.fetch("https://fake.host/admin.html?v=" + _ADMIN_HTML_VER);
     const hdrs = new Headers(resp.headers);
     if (!hdrs.get("content-type")?.includes("charset")) hdrs.set("content-type", "text/html; charset=utf-8");
     if (hdrs.has("Cache-Control")) hdrs.delete("Cache-Control");
