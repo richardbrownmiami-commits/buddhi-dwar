@@ -11,7 +11,6 @@ interface KeyEntry { id: string; apiKey: string; label: string; addedAt: number;
 type CBState = "closed" | "open" | "half-open";
 interface HealthEntry { status: "active" | "warming" | "dead" | "expired"; cbState: CBState; lastCheck: number; consecutiveFailDays: number; consecutiveFailures: number; lastError: string; lastUsed: number; successCount: number; failCount: number; avgResponseTime: number; lastResponseTime: number; }
 interface GatewayKey { word: string; label: string; createdAt: number; enabled: boolean; usage: number; }
-interface EvictionLog { id: string; provider: string; keyId: string; reason: string; evictedAt: number; }
 interface ReqLog { model: string; provider: string; keyId: string; status: number; latencyMs: number; timestamp: number; promptTokens?: number; completionTokens?: number; cost?: number; }
 interface DailyAnalytics { date: string; requests: number; successes: number; failures: number; totalLatencyMs: number; totalPromptTokens: number; totalCompletionTokens: number; totalCost: number; providerStats: Record<string, { requests: number; successes: number; failures: number; totalLatencyMs: number; totalPromptTokens: number; totalCompletionTokens: number; totalCost: number }>; }
 type Strategy = "round-robin" | "lowest-latency" | "least-loaded";
@@ -105,23 +104,6 @@ async function getStat(date: string): Promise<number> {
   const v = await _BF.get("stat:req:" + date);
   return v ? parseInt(v) : 0;
 }
-async function logError(provider: string, keyId: string, error: string, message: string) {
-  await _BF.put("log:err:" + Date.now(), JSON.stringify({ provider, keyId, error, message, ts: Date.now() }), { expirationTtl: 86400 });
-}
-async function logEviction(provider: string, keyId: string, reason: string) {
-  const entry = { provider, keyId, reason, evictedAt: Date.now() };
-  await _BF.put("log:evict:" + Date.now(), JSON.stringify(entry), { expirationTtl: 604800 });
-  await sendWebhook("eviction", entry);
-}
-async function getRecentLogs(): Promise<any[]> {
-  const list = await _BF.list({ prefix: "log:", limit: 100 });
-  const out: any[] = [];
-  for (const k of list.keys) {
-    const v = await _BF.get(k.name, "json");
-    if (v) out.push(v as any);
-  }
-  return out.sort((a: any, b: any) => (b.ts || b.evictedAt || 0) - (a.ts || a.evictedAt || 0));
-}
 function checkAdmin(req: Request): boolean {
   const c = req.headers.get("Cookie") || "";
   return c.includes("bfadmin=" + _ADMIN_PW);
@@ -141,11 +123,6 @@ async function recordLoginAttempt(ip: string) {
 function getBearer(req: Request): string | null {
   const m = (req.headers.get("Authorization") || "").match(/^Bearer\s+(.+)$/i);
   return m ? m[1] : null;
-}
-
-async function logRequest(rl: ReqLog) {
-  const key = "reqlog:" + getToday() + ":" + Date.now();
-  await _BF.put(key, JSON.stringify(rl), { expirationTtl: 86400 });
 }
 
 async function updateAnalytics(rl: ReqLog) {
@@ -215,7 +192,7 @@ async function trackKeyUsage(rl: ReqLog) {
   u.requests++;
   if (rl.status >= 200 && rl.status < 400) u.successes++; else u.failures++;
   u.promptTokens += rl.promptTokens || 0; u.completionTokens += rl.completionTokens || 0; u.cost += rl.cost || 0;
-  await _BF.put(key, JSON.stringify(u), { expirationTtl: 86400 * 90 });
+  await _BF.put(key, JSON.stringify(u), { expirationTtl: 86400 * 20 });
 }
 async function getProviderLimits(): Promise<Record<string, { dailyRequests: number; dailyTokens: number; monthlyCostUSD: number }>> {
   const raw = await _BF.get("providers:limits", "json");
@@ -383,7 +360,6 @@ async function handleProxy(req: Request): Promise<Response> {
           }
           const cost = estimateCost(tryModel, promptTokens, completionTokens);
           const rl: ReqLog = { model: tryModel, provider: p.name, keyId: ke.id, status: resp.status, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens, cost };
-          await logRequest(rl);
           await updateAnalytics(rl);
           await trackKeyUsage(rl);
           await saveRateLimit(p.name, ke.id, resp);
@@ -417,7 +393,6 @@ async function handleProxy(req: Request): Promise<Response> {
           if (resp.status === 429) hasRateLimit = true;
           if (resp.status === 401 || resp.status === 403) {
             await sendWebhook("auth_failure", { provider: p.name, keyId: ke.id, status: resp.status });
-            await logError(p.name, ke.id, "auth", resp.status + ": " + txt.slice(0, 200));
           }
           if (resp.status === 401 || resp.status === 403 || resp.status >= 500) break;
         } catch (e: any) {
@@ -425,11 +400,10 @@ async function handleProxy(req: Request): Promise<Response> {
           const promptText = JSON.stringify(body.messages || "");
           const promptTokens = estimateTokens(promptText);
           const rl: ReqLog = { model: tryModel, provider: p.name, keyId: ke.id, status: 0, latencyMs: latency, timestamp: Date.now(), promptTokens, completionTokens: 0, cost: estimateCost(tryModel, promptTokens, 0) };
-          await logRequest(rl); await updateAnalytics(rl); await trackKeyUsage(rl);
+          await updateAnalytics(rl); await trackKeyUsage(rl);
           h.failCount++; h.lastError = tryModel + " " + e.message; h.lastCheck = Date.now(); h.consecutiveFailures++;
           if (h.consecutiveFailures >= 5) h.cbState = "open";
           await setHealth(p.name, ke.id, h);
-          await logError(p.name, ke.id, "network", e.message);
           lastErrors.push(p.name + ":" + tryModel + ":error:" + e.message.slice(0, 50));
           break;
         }
@@ -531,7 +505,6 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       let keys = await getKeys(pname);
       keys = keys.filter((k: any) => k.id !== id);
       await setKeys(pname, keys);
-      await logEviction(pname, id, "manual_remove");
       return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
     }
   }
@@ -619,22 +592,6 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
       }
     }
     return new Response(JSON.stringify({ requestsToday: reqsToday, totalKeys, activeKeys, deadKeys, warmingKeys, expiredKeys }), { headers: { "content-type": "application/json" } });
-  }
-
-  if (path === "/admin/api/logs") {
-    const logs = await getRecentLogs();
-    return new Response(JSON.stringify(logs), { headers: { "content-type": "application/json" } });
-  }
-
-  if (path === "/admin/api/request-logs") {
-    const date = url.searchParams.get("date") || getToday();
-    const list = await _BF.list({ prefix: "reqlog:" + date + ":", limit: 200 });
-    const out: ReqLog[] = [];
-    for (const k of list.keys) {
-      const v = await _BF.get(k.name, "json");
-      if (v) out.push(v as any);
-    }
-    return new Response(JSON.stringify(out.sort((a, b) => b.timestamp - a.timestamp)), { headers: { "content-type": "application/json" } });
   }
 
   if (path === "/admin/api/analytics") {
@@ -805,7 +762,7 @@ async function handleCron() {
     for (let i = keys.length - 1; i >= 0; i--) {
       const h = await getHealth(p.name, keys[i].id);
       if (h.status === "expired" || h.lastUsed > 0 && h.lastUsed < cutoff) {
-        await logEviction(p.name, keys[i].id, h.status === "expired" ? "expired" : "inactive");
+        sendWebhook("eviction", { provider: p.name, keyId: keys[i].id, reason: h.status === "expired" ? "expired" : "inactive", evictedAt: Date.now() });
         keys.splice(i, 1);
         changed = true;
       }
