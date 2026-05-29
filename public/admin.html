@@ -111,14 +111,15 @@ function api(path, opts) {
     credentials: 'same-origin', ...(opts || {})
   }).then(r => { hideLoading(); if (r.status === 401) { document.cookie = 'bfadmin=;max-age=0'; showLogin(); throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
 }
-function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
 async function copyKey(pname, id) {
   try { const r = await api('/keys?full=1&pname=' + encodeURIComponent(pname) + '&id=' + encodeURIComponent(id)); if (r.apiKey) { await navigator.clipboard.writeText(r.apiKey); showToast('Key copied', 'success'); } else showToast('Failed to get key', 'error'); } catch { showToast('Failed to copy', 'error'); }
 }
 function showToast(msg, type) {
   const ico = type === 'success' ? '\u2713' : type === 'error' ? '\u2717' : '\u2139';
   const t = document.createElement('div'); t.className = 'toast ' + type;
-  t.innerHTML = '<span style="margin-right:10px;font-size:16px">' + ico + '</span>' + msg;
+  t.innerHTML = '<span style="margin-right:10px;font-size:16px">' + ico + '</span>';
+  t.appendChild(document.createTextNode(msg));
   document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
 }
 function showLogin() { document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('main-content').innerHTML = ''; }
@@ -189,7 +190,7 @@ async function renderOverview() {
       <div style="font-size:12px;color:#fde68a;margin-top:8px">Use a Gateway Key as Bearer token. See Setup tab for examples.</div>
     </div>
     <h2 style="margin-top:8px">Daily Requests (7 days)</h2>
-    <pre>${JSON.stringify(a, null, 2)}</pre>
+    <pre>${esc(JSON.stringify(a, null, 2))}</pre>
   `);
 }
 async function renderKeys() {
@@ -254,12 +255,12 @@ async function addKey() {
 }
 async function renderGateway() {
   const g = await api('/gateway-keys');
-  let rows = g.map(k => '<tr><td>' + k.word + '</td>' +
+  let rows = g.map(k => '<tr data-word="' + esc(k.word) + '" data-enabled="' + k.enabled + '"><td>' + esc(k.word) + '</td>' +
     '<td><span class="tag ' + (k.enabled?'active':'fail') + '">' + (k.enabled?'Active':'Disabled') + '</span></td>' +
     '<td>' + (k.usage||0) + '</td>' +
     '<td style="font-size:12px;color:#94a3b8">' + (k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '') + '</td>' +
-    '<td><button onclick="toggleGw(\'' + k.word + '\',!' + k.enabled + ')" style="padding:4px 10px;font-size:12px">' + (k.enabled?'Disable':'Enable') + '</button>' +
-    '<button class="danger" onclick="deleteGw(\'' + k.word + '\')" style="padding:4px 10px;font-size:12px">Del</button></td></tr>').join('');
+    '<td><button onclick="toggleGw(this)" style="padding:4px 10px;font-size:12px">' + (k.enabled?'Disable':'Enable') + '</button>' +
+    '<button class="danger" onclick="deleteGw(this)" style="padding:4px 10px;font-size:12px">Del</button></td></tr>').join('');
   setContent(`
     <div class="form-row">
       <div class="form-group"><label>Gateway Key (word/token)</label><input id="gw-word" placeholder="my-app-key"></div>
@@ -270,8 +271,8 @@ async function renderGateway() {
     <tbody>${rows}</tbody></table>
   `);
 }
-async function toggleGw(word,enabled){await api('/gateway-keys',{method:'PATCH',body:JSON.stringify({word,enabled})}); renderGateway();}
-async function deleteGw(word){if(!confirm('Delete "'+word+'"?'))return;await api('/gateway-keys',{method:'DELETE',body:JSON.stringify({word})}); renderGateway();}
+async function toggleGw(el){const tr=el.closest('tr');const word=tr.dataset.word;const enabled=tr.dataset.enabled==='true'?false:true;await api('/gateway-keys',{method:'PATCH',body:JSON.stringify({word,enabled})}); renderGateway();}
+async function deleteGw(el){const word=el.closest('tr').dataset.word;if(!confirm('Delete "'+word+'"?'))return;await api('/gateway-keys',{method:'DELETE',body:JSON.stringify({word})}); renderGateway();}
 async function addGw(){
   const word=document.getElementById('gw-word').value;
   if(!word){showToast('Word required','error');return}
@@ -293,14 +294,14 @@ async function renderStrategy() {
   const s = await api('/strategy');
   let html = '<div class="cards">';
   for (const [prov, strat] of Object.entries(s)) {
-    html += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:8px">' + prov + '</h3>' +
-      '<p style="font-size:13px;color:#94a3b8">Strategy: <b style="color:#e2e8f0">' + strat + '</b></p></div>';
+    html += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:8px">' + esc(prov) + '</h3>' +
+      '<p style="font-size:13px;color:#94a3b8">Strategy: <b style="color:#e2e8f0">' + esc(strat) + '</b></p></div>';
   }
   html += '</div><h2 style="margin-top:24px">Set Strategy</h2><div class="form-row">' +
     '<div class="form-group"><label>Provider</label><select id="str-provider">' + ['groq','google','mistral','openrouter'].map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
     '<div class="form-group"><label>Strategy</label><select id="str-strategy"><option>round-robin</option><option>lowest-latency</option><option>least-loaded</option></select></div>' +
     '<button class="primary" onclick="updateStr()">Set</button></div>' +
-    '<h2>Raw</h2><pre>' + JSON.stringify(s, null, 2) + '</pre>';
+    '<h2>Raw</h2><pre>' + esc(JSON.stringify(s, null, 2)) + '</pre>';
   setContent(html);
 }
 async function updateStr() {
@@ -327,7 +328,7 @@ function renderLogPage() {
   const start = _logPage * _logPageSize;
   const page = _allLogs.slice(start, start + _logPageSize);
   const rows = page.map(e => '<tr><td style="color:#94a3b8;font-size:12px">' + (e.ts ? new Date(e.ts).toLocaleString() : (e.evictedAt ? new Date(e.evictedAt).toLocaleString() : '—')) + '</td>' +
-    '<td>' + logTypeBadge(e) + '</td><td>' + (e.provider||'') + '</td><td style="font-size:11px;color:#94a3b8">' + (e.keyId||'') + '</td><td>' + (e.reason||e.error||e.message||'') + '</td></tr>').join('');
+    '<td>' + logTypeBadge(e) + '</td><td>' + esc(e.provider||'') + '</td><td style="font-size:11px;color:#94a3b8">' + esc(e.keyId||'') + '</td><td>' + esc(e.reason||e.error||e.message||'') + '</td></tr>').join('');
   const total = _allLogs.length;
   const maxPage = Math.ceil(total / _logPageSize) - 1;
   setContent('<p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Eviction &amp; error log entries from KV</p><table><thead><tr><th>Time</th><th>Type</th><th>Provider</th><th>Key</th><th>Message</th></tr></thead><tbody>' + rows + '</tbody></table>' +
@@ -350,8 +351,8 @@ function renderReqLogPage() {
   const start = _rlogPage * _rlogPageSize;
   const page = _allReqLogs.slice(start, start + _rlogPageSize);
   const rows = page.map(e => '<tr><td style="color:#94a3b8;font-size:11px">' + new Date(e.timestamp).toLocaleTimeString() + '</td>' +
-    '<td>' + (e.provider||'') + '</td><td style="font-size:11px;color:#94a3b8">' + (e.keyId||'').slice(0,8) + '</td>' +
-    '<td style="font-size:12px">' + (e.model||'') + '</td>' +
+    '<td>' + esc(e.provider||'') + '</td><td style="font-size:11px;color:#94a3b8">' + esc((e.keyId||'').slice(0,8)) + '</td>' +
+    '<td style="font-size:12px">' + esc(e.model||'') + '</td>' +
     '<td><span class="tag ' + (e.status>=200&&e.status<300?'ok':'fail') + '">' + (e.status||'—') + '</span></td>' +
     '<td>' + (e.latencyMs||'—') + 'ms</td>' +
     '<td style="font-size:11px">' + (e.promptTokens||'—') + '/' + (e.completionTokens||'—') + '</td>' +
@@ -397,7 +398,7 @@ async function renderSettings() {
     <div class="form-group"><label>Cache Enabled</label><select id="set-cache-enabled"><option value="true" ${s.enabled?'selected':''}>Yes</option><option value="false" ${!s.enabled?'selected':''}>No</option></select></div>
     <div style="margin-top:16px"><button class="primary" onclick="saveCache()">Save Cache Settings</button></div>
     <h2 style="margin-top:32px">Providers</h2>
-    <pre>${JSON.stringify(w,null,2)}</pre>
+    <pre>${esc(JSON.stringify(w,null,2))}</pre>
   `);
 }
 async function saveCache() {
@@ -412,10 +413,10 @@ async function renderHealth() {
   let cards = '';
   for(const item of h) {
     const ok = item.status === 'ok' ? 'ok' : 'fail';
-    cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px">' + (item.provider||'') + ' / ' + (item.keyId||'').slice(0,8) + '</h3>' +
-      '<p><span class="tag ' + ok + '">' + (item.status||'?') + '</span></p>' +
-      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'—') + ' | CB: ' + (item.cbState||'—') + '</p>' +
-      (item.error ? '<pre style="font-size:11px;margin-top:4px">' + item.error + '</pre>' : '') + '</div>';
+    cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px">' + esc(item.provider||'') + ' / ' + esc((item.keyId||'').slice(0,8)) + '</h3>' +
+      '<p><span class="tag ' + ok + '">' + esc(item.status||'?') + '</span></p>' +
+      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'—') + ' | CB: ' + esc(item.cbState||'—') + '</p>' +
+      (item.error ? '<pre style="font-size:11px;margin-top:4px">' + esc(item.error) + '</pre>' : '') + '</div>';
   }
   setContent('<div class="cards">' + (cards || '<p>No results</p>') + '</div>');
 }
