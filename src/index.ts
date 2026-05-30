@@ -893,7 +893,7 @@ app.post("/admin/api/login", async (c) => {
   if (!(await checkLoginRate(ip))) return c.json({ error: "too many attempts, try later" }, 429);
   try {
     const { password } = await c.req.json() as any;
-    if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Strict; Secure" } });
+    if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Lax" } });
   } catch {}
   await recordLoginAttempt(ip);
   return c.json({ error: "unauthorized" }, 401);
