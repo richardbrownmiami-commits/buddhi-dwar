@@ -906,7 +906,7 @@ app.post("/admin/api/login", async (c) => {
 app.get("/admin", async (c) => {
   if (_ASSETS) {
     _ADMIN_HTML_VER = _ADMIN_HTML_VER || Date.now();
-    const resp = await _ASSETS.fetch("https://fake.host/admin.html?v=" + _ADMIN_HTML_VER);
+    const resp = await _ASSETS.fetch("https://fake.host/_admin.html?v=" + _ADMIN_HTML_VER);
     const hdrs = new Headers(resp.headers);
     if (!hdrs.get("content-type")?.includes("charset")) hdrs.set("content-type", "text/html; charset=utf-8");
     if (hdrs.has("Cache-Control")) hdrs.delete("Cache-Control");
