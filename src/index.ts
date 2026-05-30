@@ -522,7 +522,6 @@ async function handleAnthropic(req: Request): Promise<Response> {
 }
 
 async function handleAdminApi(req: Request, path: string): Promise<Response> {
-  if (!checkAdmin(req)) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
   const url = new URL(req.url);
 
   if (path === "/admin/api/providers") {
