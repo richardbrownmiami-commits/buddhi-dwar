@@ -1,5 +1,6 @@
 import { Hono } from 'https://esm.sh/hono@4.7.0';
 const DAY_MS = 86400000;
+// trigger redeploy
 const EVICT_DAYS = 5;
 let _BF: KVNamespace;
 let _ASSETS: Fetcher;
@@ -909,3 +910,4 @@ export default {
     await handleCron();
   },
 };
+
