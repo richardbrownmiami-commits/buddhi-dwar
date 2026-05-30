@@ -26,7 +26,7 @@ const DEFAULT_PROVIDER_LIMITS: Record<string, { dailyRequests: number; dailyToke
   together: { dailyRequests: 5000, dailyTokens: 1000000, monthlyCostUSD: 0 },
 };
 
-/* â”€â”€ Rate Limiting â”€â”€ */
+/* ── Rate Limiting ── */
 interface RateLimitConfig { maxRequests: number; windowMs: number; }
 const DEFAULT_RATE_LIMIT: RateLimitConfig = { maxRequests: 60, windowMs: 60000 };
 
@@ -210,7 +210,7 @@ async function setCacheCfg(cfg: { ttlSeconds: number; enabled: boolean }) {
   await _BF.put("cache:config", JSON.stringify(cfg));
 }
 
-/* â”€â”€ Google Gemini Format â”€â”€ */
+/* ── Google Gemini Format ── */
 function oaiToGemini(body: any, model: string) {
   const contents = (body.messages || []).filter((m: any) => m.role !== 'system').map((m: any) => ({ role: m.role === 'assistant' ? 'model' : m.role, parts: [{ text: m.content || '' }] }));
   const sys = (body.messages || []).find((m: any) => m.role === 'system');
@@ -230,7 +230,7 @@ function geminiToOai(data: any, model: string) {
   return { id: 'chatcmpl-' + Date.now(), object: 'chat.completion', created: Math.floor(Date.now() / 1000), model, choices, usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 } };
 }
 
-/* â”€â”€ Anthropic â†” OpenAI Format Converters â”€â”€ */
+/* ── Anthropic ↔ OpenAI Format Converters ── */
 function anthropicToOpenAI(body: any): any {
   const messages: any[] = [];
   if (body.system) messages.push({ role: "system", content: body.system });
@@ -246,7 +246,7 @@ function openAIToAnthropic(oai: any, model: string): any {
   return { id: "msg_" + (oai.id || Date.now()), type: "message", role: "assistant", content: [{ type: "text", text: choice.message?.content || "" }], model, stop_reason: stopMap[choice.finish_reason || ""] || null, stop_sequence: null, usage: { input_tokens: oai.usage?.prompt_tokens || 0, output_tokens: oai.usage?.completion_tokens || 0 } };
 }
 
-/* â”€â”€ Token Counting & Pricing â”€â”€ */
+/* ── Token Counting & Pricing ── */
 const MODEL_PRICING: Record<string, { input: number; output: number }> = {
   "gemini-2.0-flash": { input: 0.1, output: 0.4 },
   "llama-3.3-70b": { input: 0.59, output: 0.79 }, "llama-3.1-8b": { input: 0.05, output: 0.08 },
@@ -321,7 +321,7 @@ async function selectKey(provider: string, keys: KeyEntry[], strategy: Strategy)
   return null;
 }
 
-/* â”€â”€ Streaming Timeout â”€â”€ */
+/* ── Streaming Timeout ── */
 function streamWithTimeout(readable: ReadableStream, timeoutMs: number = 60000): ReadableStream {
   const reader = readable.getReader();
   return new ReadableStream({
@@ -726,6 +726,9 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     const body = await req.json() as any;
     const { pname, id } = body;
     if (!pname || !id) return new Response(JSON.stringify({ error: "provider and id required" }), { status: 400, headers: { "content-type": "application/json" } });
+    const tip = req.headers.get("CF-Connecting-IP") || "test-key";
+    const trl = await checkRateLimit("test:" + tip, { maxRequests: 30, windowMs: 60000 });
+    if (!trl.allowed) return new Response(JSON.stringify({ error: "too many test requests", retryAfterMs: trl.resetMs }), { status: 429, headers: { "content-type": "application/json" } });
     const keys = await getKeys(pname);
     const ke = keys.find((k: any) => k.id === id);
     if (!ke) return new Response(JSON.stringify({ error: "key not found" }), { status: 404, headers: { "content-type": "application/json" } });
@@ -858,7 +861,7 @@ async function handleCron() {
   }
 }
 
-/* â”€â”€ Hono App â”€â”€ */
+/* ── Hono App ── */
 const app = new Hono();
 
 app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
