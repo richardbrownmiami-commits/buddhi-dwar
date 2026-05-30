@@ -872,10 +872,10 @@ const ADMIN_PAGE = atob(ADMIN_PAGE_B64);
 /* ── Hono App ── */
 const app = new Hono();
 
-app.post("/v1/chat/completions", async (c) => handleProxy(c.req.raw));
-app.post("/chat/completions", async (c) => handleProxy(c.req.raw));
-app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req.raw));
-app.post("/v1/messages", async (c) => handleAnthropic(c.req.raw));
+app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
+app.post("/chat/completions", async (c) => handleProxy(c.req));
+app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req));
+app.post("/v1/messages", async (c) => handleAnthropic(c.req));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 
@@ -909,7 +909,7 @@ app.get("/admin", async (c) => {
   return new Response(body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate" } });
 });
 app.get("/admin/", async (c) => c.redirect("/admin"));
-app.all("/admin/*", async (c) => handleAdminApi(c.req.raw, new URL(c.req.raw.url).pathname));
+app.all("/admin/api/*", async (c) => handleAdminApi(c.req.raw, new URL(c.req.raw.url).pathname));
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext) {
