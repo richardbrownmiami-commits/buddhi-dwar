@@ -920,7 +920,16 @@ app.post("/admin/api/login", async (c) => {
   return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": cookie } });
 });
 
+function loginForm(err: string): string {
+  return '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>Buddhi Dwar - Login</title><style>*{margin:0;padding:0;box-sizing:border-box;font-family:system-ui,sans-serif}body{display:flex;min-height:100vh;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0e1a,#121b33);color:#e2e8f0}.box{background:rgba(30,41,59,.6);backdrop-filter:blur(20px);padding:48px;border-radius:20px;border:1px solid rgba(56,189,248,.1);width:380px;max-width:90vw;box-shadow:0 16px 48px rgba(0,0,0,.5)}h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}.sub{color:#8899b4;margin-bottom:24px;font-size:14px}input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(71,85,105,.4);background:rgba(15,23,42,.6);color:#e2e8f0;font-size:16px;outline:none;transition:all .2s}input:focus{border-color:#38bdf8}button{width:100%;padding:14px;border-radius:12px;border:none;font-size:15px;font-weight:600;cursor:pointer;background:linear-gradient(135deg,#38bdf8,#6366f1);color:#fff;margin-top:12px}.err{color:#fca5a5;font-size:13px;margin-top:10px;text-align:center}' + (err ? '' : 'display:none') + '}</style></head><body><div class="box"><h1>Buddhi Dwar</h1><p class="sub">Admin Dashboard Login</p><form method="POST" action="/admin/api/login?redirect=/admin"><input type="password" name="password" placeholder="Enter admin password" autofocus><button type="submit">Login</button></form><p class="err">' + err + '</p></div></body></html>';
+}
 app.get("/admin", async (c) => {
+  const ck = c.req.header("Cookie") || "";
+  const authed = ck.includes("bfadmin=" + _ADMIN_PW);
+  if (!authed) {
+    const err = new URL(c.req.url).searchParams.get("error") || "";
+    return c.html(loginForm(err === "1" ? "Invalid password" : ""));
+  }
   if (_ASSETS) {
     _ADMIN_HTML_VER = _ADMIN_HTML_VER || Date.now();
     const resp = await _ASSETS.fetch("https://fake.host/_admin.html?v=" + _ADMIN_HTML_VER);
