@@ -107,6 +107,7 @@ function showToast(msg, type) {
   t.appendChild(document.createTextNode(msg));
   document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
 }
+showTab('overview');
 
 function showTab(name) {
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
