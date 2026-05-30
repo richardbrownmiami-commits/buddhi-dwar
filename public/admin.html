@@ -218,8 +218,8 @@ async function renderOverview() {
 }
 async function renderKeys() {
   const [raw, health] = await Promise.all([api('/keys'), api('/keys-health')]);
-  const hMap: Record<string, Record<string, any>> = {};
-  for (const [prov, items] of Object.entries(health || {})) { hMap[prov] = {}; for (const it of items as any[]) hMap[prov][it.id] = it; }
+  const hMap = {};
+  for (const [prov, items] of Object.entries(health || {})) { hMap[prov] = {}; for (const it of items) hMap[prov][it.id] = it; }
   let rows = '';
   for (const [pname, keys] of Object.entries(raw)) {
     for (const k of keys) {
