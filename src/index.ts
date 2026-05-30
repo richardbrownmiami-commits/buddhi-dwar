@@ -107,16 +107,8 @@ async function getStat(date: string): Promise<number> {
   return v ? parseInt(v) : 0;
 }
 function checkAdmin(req: Request): boolean {
-  const basic = req.headers.get("Authorization") || "";
-  if (basic.startsWith("Basic ")) {
-    try { const decoded = atob(basic.slice(6)); const pw = decoded.split(":")[1]; if (pw === _ADMIN_PW) return true; } catch {}
-  }
   const c = req.headers.get("Cookie") || "";
-  if (c.includes("bfadmin=" + _ADMIN_PW)) return true;
-  const xa = req.headers.get("X-Admin-Auth") || "";
-  if (xa === _ADMIN_PW) return true;
-  const q = new URL(req.url).searchParams.get("auth") || "";
-  return q === _ADMIN_PW;
+  return c.includes("bfadmin=" + _ADMIN_PW);
 }
 function maskKey(k: string): string { return k.length > 8 ? k.slice(0, 3) + "****" + k.slice(-4) : "****"; }
 async function checkLoginRate(ip: string): Promise<boolean> {
@@ -522,6 +514,7 @@ async function handleAnthropic(req: Request): Promise<Response> {
 }
 
 async function handleAdminApi(req: Request, path: string): Promise<Response> {
+  if (!checkAdmin(req)) return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401, headers: { "content-type": "application/json" } });
   const url = new URL(req.url);
 
   if (path === "/admin/api/providers") {
@@ -898,44 +891,28 @@ app.get("/models", async (c) => handleModels());
 app.post("/admin/api/login", async (c) => {
   const ip = c.req.header("CF-Connecting-IP") || "unknown";
   if (!(await checkLoginRate(ip))) return c.json({ error: "too many attempts, try later" }, 429);
-  let password = "";
   try {
-    const ct = (c.req.header("Content-Type") || "").toLowerCase();
-    if (ct.includes("json")) {
-      const j = await c.req.json() as any;
-      password = j.password || "";
-    } else {
-      const fd = await c.req.raw.formData();
-      password = (fd.get("password") as string) || "";
-    }
+    const { password } = await c.req.json() as any;
+    if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Lax" } });
   } catch {}
-  const url = new URL(c.req.url);
-  const redirect = url.searchParams.get("redirect") || "";
-  if (password !== _ADMIN_PW) {
-    await recordLoginAttempt(ip);
-    if (redirect) return c.redirect(redirect + (redirect.includes("?") ? "&" : "?") + "error=1");
-    return c.json({ error: "unauthorized" }, 401);
-  }
-  const cookie = "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Lax; Max-Age=86400";
-  if (redirect) {
-    return new Response(null, { status: 302, headers: { "Location": redirect, "Set-Cookie": cookie } });
-  }
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": cookie } });
+  await recordLoginAttempt(ip);
+  return c.json({ error: "unauthorized" }, 401);
 });
 
 app.get("/admin", async (c) => {
   if (_ASSETS) {
     _ADMIN_HTML_VER = _ADMIN_HTML_VER || Date.now();
-    const resp = await _ASSETS.fetch("https://fake.host/_admin.html?v=" + _ADMIN_HTML_VER);
+    const resp = await _ASSETS.fetch("https://fake.host/admin.html?v=" + _ADMIN_HTML_VER);
     const hdrs = new Headers(resp.headers);
     if (!hdrs.get("content-type")?.includes("charset")) hdrs.set("content-type", "text/html; charset=utf-8");
     if (hdrs.has("Cache-Control")) hdrs.delete("Cache-Control");
     hdrs.set("Cache-Control", "private, no-cache, no-store, must-revalidate, max-age=0");
     hdrs.set("Pragma", "no-cache"); hdrs.set("Expires", "0");
-    return new Response(resp.body, { status: 200, headers: hdrs });
+    return new Response(resp.body, { status: resp.status, headers: hdrs });
   }
   return c.html("<!DOCTYPE html><html><body><h1>Assets unavailable</h1></body></html>");
-});app.get("/admin/", async (c) => c.redirect("/admin"));
+});
+app.get("/admin/", async (c) => c.redirect("/admin"));
 app.all("/admin/*", async (c) => handleAdminApi(c.req.raw, new URL(c.req.url).pathname));
 
 export default {
