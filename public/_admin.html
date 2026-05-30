@@ -64,12 +64,30 @@ pre{background:rgba(15,23,42,.6);padding:18px;border-radius:12px;overflow:auto;f
 summary{color:#38bdf8;font-weight:600;cursor:pointer;padding:8px 0;font-size:14px}
 details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:1px solid rgba(56,189,248,.06);margin-bottom:16px}
 .page-desc{background:rgba(56,189,248,.06);border-left:3px solid #38bdf8;padding:12px 16px;border-radius:0 10px 10px 0;margin-bottom:20px;font-size:13px;color:#94a3b8;line-height:1.6}
+#login-overlay{display:flex;position:fixed;inset:0;z-index:100000;align-items:center;justify-content:center;background:linear-gradient(135deg,#0a0e1a,#121b33)}
+#login-overlay.hidden{display:none}
+.login-box{background:rgba(30,41,59,.6);backdrop-filter:blur(20px);padding:48px;border-radius:20px;border:1px solid rgba(56,189,248,.1);width:380px;max-width:90vw;text-align:center}
+.login-box h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.login-sub{color:#8899b4;margin-bottom:24px;font-size:14px}
+.login-box input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(71,85,105,.4);background:rgba(15,23,42,.6);color:#e2e8f0;font-size:16px;outline:none;box-sizing:border-box}
+.login-box input:focus{border-color:#38bdf8}
+.login-box button{width:100%;padding:14px;border-radius:12px;border:none;font-size:15px;font-weight:600;cursor:pointer;background:linear-gradient(135deg,#38bdf8,#6366f1);color:#fff;margin-top:12px}
+.login-err{color:#fca5a5;font-size:13px;margin-top:10px;text-align:center}
 @media(max-width:768px){.sidebar{width:60px;padding:16px 0}.sidebar h1,.sidebar a span:last-child{display:none}.sidebar a{justify-content:center;padding:11px 0;margin:2px 6px}.main{padding:20px}.grid-2{grid-template-columns:1fr}}
 @media(max-width:480px){.sidebar{width:48px}.main{padding:16px}.cards{grid-template-columns:1fr 1fr}}
 </style>
 </head>
 <body>
 <div id="loading-bar"></div>
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>Buddhi Dwar</h1>
+    <p class="login-sub">Admin Dashboard</p>
+    <input type="password" id="login-pw" placeholder="Enter admin password" autofocus>
+    <button onclick="doLogin()">Login</button>
+    <p class="login-err" id="login-err"></p>
+  </div>
+</div>
 <div class="sidebar">
 <h1>Buddhi Dwar</h1>
 <a onclick="showTab('overview')" id="nav-overview" class="active"><span class="ico ico-overview">&#9679;</span><span>Overview</span></a>
@@ -82,13 +100,26 @@ details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:
 <a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings">&#9881;</span><span>Settings</span></a>
 <a onclick="showTab('health')" id="nav-health"><span class="ico ico-health">&#10003;</span><span>Health Check</span></a>
 <a onclick="showTab('setup')" id="nav-setup"><span class="ico ico-setup">&#8505;</span><span>Setup</span></a>
-<a onclick="document.cookie='bfadmin=;max-age=0;path=/';location.reload()" style="margin-top:auto;border-top:1px solid rgba(248,113,113,.15);padding-top:14px;color:#f87171;cursor:pointer"><span class="ico ico-logs">&#10227;</span><span>Logout</span></a>
+<a onclick="try{sessionStorage.removeItem('bfadmin')}catch(){};_adminToken='';showLogin();" style="margin-top:auto;border-top:1px solid rgba(248,113,113,.15);padding-top:14px;color:#f87171;cursor:pointer"><span class="ico ico-logs">&#10227;</span><span>Logout</span></a>
 </div>
 <div class="main" id="main-content"></div>
 <script>
 let _loadingCount = 0;
 let _adminToken = '';
-try { _adminToken = (document.cookie.match(/bfadmin=([^;]+)/) || [])[1] || ''; } catch {}
+try { _adminToken = sessionStorage.getItem('bfadmin') || ''; } catch {}
+function showLogin() { document.getElementById('login-overlay').classList.remove('hidden'); }
+function hideLogin() { document.getElementById('login-overlay').classList.add('hidden'); }
+function doLogin() {
+  const pw = document.getElementById('login-pw').value;
+  const err = document.getElementById('login-err');
+  if (!pw) { err.textContent = 'Enter password'; return; }
+  _adminToken = pw;
+  try { sessionStorage.setItem('bfadmin', pw); } catch {}
+  err.textContent = '';
+  hideLogin();
+  renderOverview();
+}
+if (!_adminToken) showLogin(); else hideLogin();
 function showLoading() { _loadingCount++; const b = document.getElementById('loading-bar'); if (b) { b.style.width = '30%'; b.classList.add('active'); } }
 function hideLoading() { _loadingCount--; if (_loadingCount <= 0) { _loadingCount = 0; const b = document.getElementById('loading-bar'); if (b) { b.style.width = '100%'; setTimeout(() => { b.style.width = '0'; b.classList.remove('active'); }, 300); } } }
 function api(path, opts) {
@@ -98,7 +129,7 @@ function api(path, opts) {
   return fetch('/admin/api' + path, {
     headers: hdrs,
     credentials: 'same-origin', ...(opts || {})
-  }).then(r => { hideLoading(); if (r.status === 401) { document.cookie = 'bfadmin=;max-age=0;path=/'; location.reload(); throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
+  }).then(r => { hideLoading(); if (r.status === 401) { try{sessionStorage.removeItem('bfadmin')}catch(){};_adminToken='';showLogin(); throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
 async function copyKey(pname, id) {
@@ -204,13 +235,13 @@ async function renderKeys() {
       const cooling = hi?.cooling || false;
       const err = hi?.lastError || '';
       const stClass = st === 'active' ? 'ok' : st === 'dead' ? 'fail' : st === 'expired' ? 'warning' : 'warning';
-      const stLabel = st + (cb === 'open' ? ' ðŸ”“' : cb === 'half-open' ? ' ðŸ”„' : '') + (cooling ? ' â³' : '');
+      const stLabel = st + (cb === 'open' ? ' 🔓' : cb === 'half-open' ? ' 🔄' : '') + (cooling ? ' ⏳' : '');
       const errShort = err ? ' <span style="font-size:10px;color:#f87171">' + esc(err.slice(0, 60)) + '</span>' : '';
       rows += '<tr><td>' + esc(pname) + '</td><td style="font-size:11px;color:#94a3b8">' + esc(k.label||'') + '</td>' +
         '<td><code style="font-size:11px;color:#94a3b8;user-select:none">' + masked + '</code></td>' +
         '<td><span class="tag ' + stClass + '" id="st-' + esc(k.id) + '" style="cursor:help" title="CB: ' + cb + (cooling ? ' | cooling 60s' : '') + (err ? ' | ' + esc(err) : '') + '">' + stLabel + '</span></td>' +
-        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + esc(ms || 'â€”') + '</td>' +
-        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : 'â€”') + '</td>' +
+        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + esc(ms || '—') + '</td>' +
+        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : '—') + '</td>' +
 '<td><button class="primary" onclick="copyKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Copy</button> ' +
 '<button class="secondary" onclick="testKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Test</button> ' +
 '<button class="secondary" onclick="reDetectKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Models</button> ' +
@@ -346,7 +377,7 @@ async function updateStr() {
 async function renderAnalytics() {
   const a = await api('/analytics?days=30');
   if(!Array.isArray(a)||a.length===0){setContent('<p>No analytics data</p>');return}
-  let rows = a.map(d => '<tr><td>' + (d.date||'Ã¢â‚¬â€') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
+  let rows = a.map(d => '<tr><td>' + (d.date||'â€”') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
     '<td>' + (d.successes||0) + '</td><td>' + ((d.totalPromptTokens||0).toLocaleString()) + '</td>' +
     '<td>' + ((d.totalCompletionTokens||0).toLocaleString()) + '</td><td>$' + ((d.totalCost||0).toFixed(4)) + '</td></tr>').join('');
   let totalReq=0,totalFail=0,totalCost=0,totalPrompt=0,totalComp=0;
@@ -483,7 +514,7 @@ async function renderHealth() {
     const ok = item.status === 'ok' ? 'ok' : 'fail';
     cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px">' + esc(item.provider||'') + ' / ' + esc((item.keyId||'').slice(0,8)) + '</h3>' +
       '<p><span class="tag ' + ok + '">' + esc(item.status||'?') + '</span></p>' +
-      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'Ã¢â‚¬â€') + ' | CB: ' + esc(item.cbState||'Ã¢â‚¬â€') + '</p>' +
+      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'â€”') + ' | CB: ' + esc(item.cbState||'â€”') + '</p>' +
       (item.error ? '<pre style="font-size:11px;margin-top:4px">' + esc(item.error) + '</pre>' : '') + '</div>';
   }
   setContent('<h2>Health Check</h2><div class="page-desc">Probe each provider key to verify connectivity and authentication. Shows HTTP status, circuit-breaker state, and any error messages returned by the upstream API.</div><div class="cards">' + (cards || '<p>No results</p>') + '</div>');
