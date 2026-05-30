@@ -108,7 +108,11 @@ async function getStat(date: string): Promise<number> {
 }
 function checkAdmin(req: Request): boolean {
   const c = req.headers.get("Cookie") || "";
-  return c.includes("bfadmin=" + _ADMIN_PW);
+  if (c.includes("bfadmin=" + _ADMIN_PW)) return true;
+  const auth = req.headers.get("X-Admin-Auth") || "";
+  if (auth === _ADMIN_PW) return true;
+  const q = new URL(req.url).searchParams.get("auth") || "";
+  return q === _ADMIN_PW;
 }
 function maskKey(k: string): string { return k.length > 8 ? k.slice(0, 3) + "****" + k.slice(-4) : "****"; }
 async function checkLoginRate(ip: string): Promise<boolean> {
