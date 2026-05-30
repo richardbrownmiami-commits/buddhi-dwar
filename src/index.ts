@@ -895,12 +895,29 @@ app.get("/models", async (c) => handleModels());
 app.post("/admin/api/login", async (c) => {
   const ip = c.req.header("CF-Connecting-IP") || "unknown";
   if (!(await checkLoginRate(ip))) return c.json({ error: "too many attempts, try later" }, 429);
+  let password = "";
   try {
-    const { password } = await c.req.json() as any;
-    if (password === _ADMIN_PW) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Lax" } });
+    const ct = (c.req.header("Content-Type") || "").toLowerCase();
+    if (ct.includes("json")) {
+      const j = await c.req.json() as any;
+      password = j.password || "";
+    } else {
+      const fd = await c.req.raw.formData();
+      password = (fd.get("password") as string) || "";
+    }
   } catch {}
-  await recordLoginAttempt(ip);
-  return c.json({ error: "unauthorized" }, 401);
+  const url = new URL(c.req.url);
+  const redirect = url.searchParams.get("redirect") || "";
+  if (password !== _ADMIN_PW) {
+    await recordLoginAttempt(ip);
+    if (redirect) return c.redirect(redirect + (redirect.includes("?") ? "&" : "?") + "error=1");
+    return c.json({ error: "unauthorized" }, 401);
+  }
+  const cookie = "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Lax; Max-Age=86400";
+  if (redirect) {
+    return new Response(null, { status: 302, headers: { "Location": redirect, "Set-Cookie": cookie } });
+  }
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { "content-type": "application/json", "Set-Cookie": cookie } });
 });
 
 app.get("/admin", async (c) => {
