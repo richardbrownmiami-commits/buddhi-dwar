@@ -812,6 +812,22 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     return new Response(JSON.stringify(results), { headers: { "content-type": "application/json" } });
   }
 
+  if (path === "/admin/api/keys-health") {
+    const result: Record<string, any> = {};
+    for (const p of await getAllProviders()) {
+      const keys = await getKeys(p.name);
+      if (!keys.length) continue;
+      const items: any[] = [];
+      for (const k of keys) {
+        const h = await getHealth(p.name, k.id);
+        const cooling = await isKeyCooling(p.name, k.id);
+        items.push({ id: k.id, label: k.label, status: h.status, cbState: h.cbState, lastError: h.lastError.slice(0, 200), cooling, lastUsed: h.lastUsed, consecutiveFailures: h.consecutiveFailures, successCount: h.successCount, failCount: h.failCount, avgResponseTime: h.avgResponseTime });
+      }
+      result[p.name] = items;
+    }
+    return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
+  }
+
   if (path === "/admin/api/redetect-models") {
     const { pname, id } = await req.json() as any;
     if (!pname || !id) return new Response(JSON.stringify({ error: "provider and id required" }), { status: 400, headers: { "content-type": "application/json" } });
