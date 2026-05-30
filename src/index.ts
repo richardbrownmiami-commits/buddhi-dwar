@@ -873,13 +873,8 @@ const ADMIN_PAGE = atob(ADMIN_PAGE_B64);
 const app = new Hono();
 
 async function handleNative(c: any): Promise<Response> {
-  const raw = c.req.raw.clone();
-  const url = raw.url;
-  const method = raw.method;
-  const headers = raw.headers;
-  const body = method === "GET" ? null : await raw.text();
-  const r = new Request(url, { method, headers, body });
-  const path = new URL(url).pathname;
+  const r = new Request(c.req.raw);
+  const path = new URL(r.url).pathname;
   if (path === "/v1/chat/completions" || path === "/chat/completions") return handleProxy(r);
   if (path === "/v1/embeddings") return handleEmbeddings(r);
   if (path === "/v1/messages") return handleAnthropic(r);
