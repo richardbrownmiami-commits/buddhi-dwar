@@ -1,4 +1,4 @@
-import { Hono } from './hono.bundle.mjs';
+import { Hono } from 'https://esm.sh/hono@4.7.0';
 const DAY_MS = 86400000;
 // trigger redeploy
 const EVICT_DAYS = 5;
@@ -903,8 +903,7 @@ export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext) {
     _BF = env.BF; _ASSETS = env.ASSETS as Fetcher;
     _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
-      if (req.method === "GET" && new URL(req.url).pathname === "/diag") return new Response(JSON.stringify({ ok: true, hasCookie: req.headers.has("Cookie") }), { status: 200, headers: { "content-type": "application/json" } });
-  return app.fetch(req, env, ctx);
+      return app.fetch(req, env, ctx);
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
     _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
