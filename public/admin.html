@@ -102,15 +102,18 @@ details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:
 <div class="main" id="main-content"></div>
 <script>
 let _loadingCount = 0;
+let _adminToken = sessionStorage.getItem('bf_admin_token') || '';
 function showLoading() { _loadingCount++; const b = document.getElementById('loading-bar'); if (b) { b.style.width = '30%'; b.classList.add('active'); } }
 function hideLoading() { _loadingCount--; if (_loadingCount <= 0) { _loadingCount = 0; const b = document.getElementById('loading-bar'); if (b) { b.style.width = '100%'; setTimeout(() => { b.style.width = '0'; b.classList.remove('active'); }, 300); } } }
-function getPw() { try { return document.cookie.match(/bfadmin=([^;]+)/)[1] || '' } catch { return '' } }
+function getPw() { if (_adminToken) return _adminToken; try { return document.cookie.match(/bfadmin=([^;]+)/)[1] || '' } catch { return '' } }
 function api(path, opts) {
   showLoading();
+  const hdrs = { 'Content-Type': 'application/json', ...(opts || {}).headers };
+  if (_adminToken) hdrs['X-Admin-Auth'] = _adminToken;
   return fetch('/admin/api' + path, {
-    headers: { 'Content-Type': 'application/json', ...(opts || {}).headers },
+    headers: hdrs,
     credentials: 'same-origin', ...(opts || {})
-  }).then(r => { hideLoading(); if (r.status === 401) { document.cookie = 'bfadmin=;max-age=0'; showLogin(); throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
+  }).then(r => { hideLoading(); if (r.status === 401) { document.cookie = 'bfadmin=;max-age=0'; _adminToken = ''; sessionStorage.removeItem('bf_admin_token'); showLogin(); throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
 async function copyKey(pname, id) {
@@ -132,12 +135,12 @@ function doLogin() {
   err.style.display = 'none'; btn.classList.add('loading'); btn.textContent = 'Signing in...';
   fetch('/admin/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }), credentials: 'same-origin' }).then(r => {
     btn.classList.remove('loading'); btn.textContent = 'Login';
-    if (r.ok) { err.style.display = 'none'; document.getElementById('login-overlay').classList.add('hidden'); showTab('overview'); showToast('Welcome back', 'success'); }
+    if (r.ok) { _adminToken = pw; sessionStorage.setItem('bf_admin_token', pw); err.style.display = 'none'; document.getElementById('login-overlay').classList.add('hidden'); showTab('overview'); showToast('Welcome back', 'success'); }
     else { err.style.display = 'block'; err.textContent = 'Invalid password'; }
   }).catch(() => { btn.classList.remove('loading'); btn.textContent = 'Login'; err.style.display = 'block'; err.textContent = 'Connection error'; });
 }
 document.getElementById('login-pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
-function logout() { document.cookie = 'bfadmin=;max-age=0'; showLogin(); showToast('Logged out', 'success'); }
+function logout() { document.cookie = 'bfadmin=;max-age=0'; _adminToken = ''; sessionStorage.removeItem('bf_admin_token'); showLogin(); showToast('Logged out', 'success'); }
 function showTab(name) {
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
   const nav = document.getElementById('nav-' + name); if (nav) nav.classList.add('active');
