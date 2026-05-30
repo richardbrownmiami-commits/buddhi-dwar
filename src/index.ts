@@ -872,10 +872,23 @@ const ADMIN_PAGE = atob(ADMIN_PAGE_B64);
 /* ── Hono App ── */
 const app = new Hono();
 
-app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
-app.post("/chat/completions", async (c) => handleProxy(c.req));
-app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req));
-app.post("/v1/messages", async (c) => handleAnthropic(c.req));
+async function handleNative(c: any): Promise<Response> {
+  const body = c.req.body ? await c.req.raw.clone().text() : null;
+  const url = c.req.raw.url;
+  const method = c.req.raw.method;
+  const headers = c.req.raw.headers;
+  const r = new Request(url, { method, headers, body });
+  const path = c.req.path;
+  if (path === "/v1/chat/completions" || path === "/chat/completions") return handleProxy(r);
+  if (path === "/v1/embeddings") return handleEmbeddings(r);
+  if (path === "/v1/messages") return handleAnthropic(r);
+  return new Response("not found", { status: 404 });
+}
+
+app.post("/v1/chat/completions", async (c) => handleNative(c));
+app.post("/chat/completions", async (c) => handleNative(c));
+app.post("/v1/embeddings", async (c) => handleNative(c));
+app.post("/v1/messages", async (c) => handleNative(c));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 
