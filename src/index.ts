@@ -1,4 +1,4 @@
-import { Hono } from 'https://esm.sh/hono@4.7.0';
+import { Hono } from 'hono';
 const DAY_MS = 86400000;
 const EVICT_DAYS = 5;
 let _BF: KVNamespace;
