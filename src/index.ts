@@ -872,44 +872,44 @@ const ADMIN_PAGE = atob(ADMIN_PAGE_B64);
 /* ── Hono App ── */
 const app = new Hono();
 
-app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
-app.post("/chat/completions", async (c) => handleProxy(c.req));
-app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req));
-app.post("/v1/messages", async (c) => handleAnthropic(c.req));
+app.post("/v1/chat/completions", async (c) => handleProxy(c.req.raw));
+app.post("/chat/completions", async (c) => handleProxy(c.req.raw));
+app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req.raw));
+app.post("/v1/messages", async (c) => handleAnthropic(c.req.raw));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 
 app.post("/admin/api/login", async (c) => {
-  const ip = c.req.header("CF-Connecting-IP") || "unknown";
+  const ip = c.req.raw.headers.get("CF-Connecting-IP") || "unknown";
   if (!(await checkLoginRate(ip))) return c.json({ error: "too many attempts, try later" }, 429);
   let password = "";
-  const ct = c.req.header("Content-Type") || "";
+  const ct = c.req.raw.headers.get("Content-Type") || "";
   if (ct.includes("json")) {
-    try { const j = await c.req.json() as any; password = j.password || ""; } catch {}
+    try { const j = await c.req.raw.json() as any; password = j.password || ""; } catch {}
   } else {
-    try { const fd = await c.req.formData(); password = fd.get("password") as string || ""; } catch {}
+    try { const fd = await c.req.raw.formData(); password = fd.get("password") as string || ""; } catch {}
   }
   if (password === _ADMIN_PW) {
-    const redirect = c.req.query("redirect") || "/admin";
+    const redirect = new URL(c.req.raw.url).searchParams.get("redirect") || "/admin";
     return new Response("", { status: 302, headers: { Location: redirect, "Set-Cookie": "bfadmin=" + _ADMIN_PW + "; path=/; SameSite=Lax", "Cache-Control": "no-cache" } });
   }
   await recordLoginAttempt(ip);
-  const redirect = c.req.query("redirect") || "/admin";
+  const redirect = new URL(c.req.raw.url).searchParams.get("redirect") || "/admin";
   return new Response("", { status: 302, headers: { Location: redirect + "?error=1", "Cache-Control": "no-cache" } });
 });
 
 app.get("/admin", async (c) => {
-  const cookie = c.req.header("Cookie") || "";
+  const cookie = c.req.raw.headers.get("Cookie") || "";
   if (cookie.includes("bfadmin=" + _ADMIN_PW)) {
     return new Response(ADMIN_PAGE, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate" } });
   }
-  const err = c.req.query("error") || "";
+  const err = new URL(c.req.raw.url).searchParams.get("error") || "";
   let body = LOGIN_PAGE;
   if (err === "1") body = body.replace('id="login-err"', 'id="login-err" style="display:block"');
   return new Response(body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate" } });
 });
 app.get("/admin/", async (c) => c.redirect("/admin"));
-app.all("/admin/*", async (c) => handleAdminApi(c.req, c.req.path));
+app.all("/admin/*", async (c) => handleAdminApi(c.req.raw, new URL(c.req.raw.url).pathname));
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext) {
