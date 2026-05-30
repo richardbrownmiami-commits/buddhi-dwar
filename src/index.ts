@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono } from './hono.bundle.mjs';
 const DAY_MS = 86400000;
 // trigger redeploy
 const EVICT_DAYS = 5;
