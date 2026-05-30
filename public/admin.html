@@ -217,22 +217,55 @@ async function renderOverview() {
   } catch {}
 }
 async function renderKeys() {
-  const raw = await api('/keys');
+  const [raw, health] = await Promise.all([api('/keys'), api('/keys-health')]);
+  const hMap: Record<string, Record<string, any>> = {};
+  for (const [prov, items] of Object.entries(health || {})) { hMap[prov] = {}; for (const it of items as any[]) hMap[prov][it.id] = it; }
   let rows = '';
   for (const [pname, keys] of Object.entries(raw)) {
     for (const k of keys) {
       const ms = (k.models||[]).slice(0,3).join(', ');
       const masked = (k.apiKey||'').includes('****') ? k.apiKey : '****';
+      const hi = hMap[pname]?.[k.id];
+      const st = hi?.status || 'unknown';
+      const cb = hi?.cbState || 'closed';
+      const cooling = hi?.cooling || false;
+      const err = hi?.lastError || '';
+      const stClass = st === 'active' ? 'ok' : st === 'dead' ? 'fail' : st === 'expired' ? 'warning' : 'warning';
+      const stLabel = st + (cb === 'open' ? ' 🔓' : cb === 'half-open' ? ' 🔄' : '') + (cooling ? ' ⏳' : '');
+      const errShort = err ? ' <span style="font-size:10px;color:#f87171">' + esc(err.slice(0, 60)) + '</span>' : '';
       rows += '<tr><td>' + esc(pname) + '</td><td style="font-size:11px;color:#94a3b8">' + esc(k.label||'') + '</td>' +
         '<td><code style="font-size:11px;color:#94a3b8;user-select:none">' + masked + '</code></td>' +
-        '<td><span class="tag warning" id="st-' + esc(k.id) + '">pending</span></td>' +
-        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + esc(ms || 'â€”') + '</td>' +
-        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : 'â€”') + '</td>' +
+        '<td><span class="tag ' + stClass + '" id="st-' + esc(k.id) + '" style="cursor:help" title="CB: ' + cb + (cooling ? ' | cooling 60s' : '') + (err ? ' | ' + esc(err) : '') + '">' + stLabel + '</span></td>' +
+        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + esc(ms || '—') + '</td>' +
+        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : '—') + '</td>' +
 '<td><button class="primary" onclick="copyKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Copy</button> ' +
 '<button class="secondary" onclick="testKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Test</button> ' +
 '<button class="secondary" onclick="reDetectKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Models</button> ' +
 '<button class="danger" onclick="deleteKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Del</button></td></tr>';
     }
+  }
+  setContent(`
+    <h2>API Keys</h2>
+    <div class="page-desc">Manage provider API keys for Groq, Google Gemini, Mistral, OpenRouter, DeepSeek, and Together AI. Each key shows live health status (active/dead/expired/warming), circuit-breaker state (closed/open/half-open), and rate-limit cooldown. Click Test to probe the key, or Models to re-detect available models. Circuit breaker opens after 5 consecutive failures; rate-limit (429) triggers a 1-minute cooldown.</div>
+    <div class="form-row">
+      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>groq</option><option>google</option><option>mistral</option><option>openrouter</option><option>deepseek</option><option>together</option></select></div>
+      <div class="form-group"><label>API Key</label><input id="kp-key" placeholder="sk-..."></div>
+      <div class="form-group"><label>Label</label><input id="kp-label" placeholder="my-key"></div>
+      <button class="primary" onclick="addKey()">Add Key</button>
+    </div>
+    <details style="margin-bottom:16px;font-size:13px;color:#94a3b8;cursor:pointer">
+      <summary style="color:#38bdf8;font-size:14px;font-weight:600">Provider Key Links</summary>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <a href="https://console.groq.com/keys" target="_blank" style="color:#38bdf8">Groq console.groq.com</a>
+        <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#38bdf8">Google aistudio.google.com</a>
+        <a href="https://console.mistral.ai/api-keys" target="_blank" style="color:#38bdf8">Mistral console.mistral.ai</a>
+        <a href="https://openrouter.ai/keys" target="_blank" style="color:#38bdf8">OpenRouter openrouter.ai</a>
+      </div>
+    </details>
+    <table><thead><tr><th>Provider</th><th>Label</th><th>Key</th><th>Status</th><th>Models</th><th>Added</th><th></th></tr></thead>
+    <tbody>' + rows + '</tbody></table>
+  `);
+}
   }
   setContent(`
     <h2>API Keys</h2>
