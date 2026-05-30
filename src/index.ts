@@ -872,15 +872,10 @@ const ADMIN_PAGE = atob(ADMIN_PAGE_B64);
 /* ── Hono App ── */
 const app = new Hono();
 
-async function toReq(c: any): Promise<Request> {
-  const raw = c.req.raw.clone();
-  const text = await raw.text();
-  return new Request(raw.url, { method: "POST", headers: raw.headers, body: text });
-}
-app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
-app.post("/chat/completions", async (c) => handleProxy(c.req));
-app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req));
-app.post("/v1/messages", async (c) => handleAnthropic(c.req));
+app.post("/v1/chat/completions", async (c) => handleProxy(c.req.raw));
+app.post("/chat/completions", async (c) => handleProxy(c.req.raw));
+app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req.raw));
+app.post("/v1/messages", async (c) => handleAnthropic(c.req.raw));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 
