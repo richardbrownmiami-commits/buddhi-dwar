@@ -202,6 +202,13 @@ async function getProviderLimits(): Promise<Record<string, { dailyRequests: numb
 async function setProviderLimits(limits: any) {
   await _BF.put("providers:limits", JSON.stringify(limits));
 }
+async function getCacheCfg(): Promise<{ ttlSeconds: number; enabled: boolean }> {
+  const raw = await _BF.get("cache:config", "json");
+  return (raw as any) || { ttlSeconds: 300, enabled: false };
+}
+async function setCacheCfg(cfg: { ttlSeconds: number; enabled: boolean }) {
+  await _BF.put("cache:config", JSON.stringify(cfg));
+}
 
 /* â”€â”€ Google Gemini Format â”€â”€ */
 function oaiToGemini(body: any, model: string) {
