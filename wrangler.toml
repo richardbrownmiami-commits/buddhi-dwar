@@ -1,4 +1,5 @@
 name = 'buddhi-dwar'
+account_id = '811b3e2ee815b13e6f2335ed2b10a8b7'
 main = 'src/index.ts'
 compatibility_date = '2026-05-01'
 
