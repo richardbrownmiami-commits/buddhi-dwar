@@ -909,6 +909,11 @@ app.get("/admin", async (c) => {
   return new Response(body, { status: 200, headers: { "content-type": "text/html; charset=utf-8", "Cache-Control": "no-cache, no-store, must-revalidate" } });
 });
 app.get("/admin/", async (c) => c.redirect("/admin"));
+app.get("/diag", async (c) => {
+  const cookie = c.req.raw.headers.get("Cookie") || "(none)";
+  const pw = _ADMIN_PW;
+  return c.json({ cookie, pw, matches: cookie.includes("bfadmin=" + pw) });
+});
 app.all("/admin/*", async (c) => handleAdminApi(c.req.raw, new URL(c.req.raw.url).pathname));
 
 export default {
