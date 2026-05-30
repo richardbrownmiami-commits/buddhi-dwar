@@ -903,7 +903,8 @@ export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext) {
     _BF = env.BF; _ASSETS = env.ASSETS as Fetcher;
     _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
-    return app.fetch(req, env, ctx);
+      if (req.method === "GET" && new URL(req.url).pathname === "/diag") return new Response(JSON.stringify({ ok: true, hasCookie: req.headers.has("Cookie") }), { status: 200, headers: { "content-type": "application/json" } });
+  return app.fetch(req, env, ctx);
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
     _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "2200";
