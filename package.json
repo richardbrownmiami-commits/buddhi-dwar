@@ -1,0 +1,7 @@
+{
+    "private":  true,
+    "dependencies":  {
+                         "hono":  "^4.7.0"
+                     },
+    "version":  "1.0.0"
+}
