@@ -1,4 +1,4 @@
-import { Hono } from 'https://esm.sh/hono@4.7.0?bundle';
+import { Hono } from 'hono';
 const DAY_MS = 86400000;
 // trigger redeploy
 const EVICT_DAYS = 5;
