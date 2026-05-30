@@ -1,4 +1,4 @@
-import { Hono } from 'https://esm.sh/hono@4.7.0';
+import { Hono } from 'hono';
 const DAY_MS = 86400000;
 // trigger redeploy
 const EVICT_DAYS = 5;
@@ -865,10 +865,10 @@ async function handleCron() {
 /* ── Hono App ── */
 const app = new Hono();
 
-app.post("/v1/chat/completions", async (c) => handleProxy(c.req));
-app.post("/chat/completions", async (c) => handleProxy(c.req));
-app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req));
-app.post("/v1/messages", async (c) => handleAnthropic(c.req));
+app.post("/v1/chat/completions", async (c) => handleProxy(c.req.raw));
+app.post("/chat/completions", async (c) => handleProxy(c.req.raw));
+app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req.raw));
+app.post("/v1/messages", async (c) => handleAnthropic(c.req.raw));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 
@@ -897,7 +897,7 @@ app.get("/admin", async (c) => {
   return c.html("<!DOCTYPE html><html><body><h1>Assets unavailable</h1></body></html>");
 });
 app.get("/admin/", async (c) => c.redirect("/admin"));
-app.all("/admin/*", async (c) => handleAdminApi(c.req, c.req.path));
+app.all("/admin/*", async (c) => handleAdminApi(c.req.raw, new URL(c.req.url).pathname));
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext) {
