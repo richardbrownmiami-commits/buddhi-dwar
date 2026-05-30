@@ -349,6 +349,7 @@ async function renderAnalytics() {
     <h2>Analytics</h2>
     <div class="page-desc">View request metrics over the last 30 days: volume, success/failure rates, token usage, and estimated cost per provider. Use the Export CSV button for offline analysis.</div>
     <div class="cards">
+      <div class="card"><div class="num">${totalReq}</div><div class="lbl">Requests (30d)</div></div>
       <div class="card"><div class="num" style="color:#fca5a5">${totalFail}</div><div class="lbl">Errors (30d)</div></div>
       <div class="card"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl">Cost (30d)</div></div>
       <div class="card"><div class="num">${(totalPrompt+totalComp).toLocaleString()}</div><div class="lbl">Tokens (30d)</div></div>
@@ -403,7 +404,7 @@ async function renderUsage() {
   }
   if (html === '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">') html += '<p style="color:#94a3b8">No usage data yet</p>';
   html += '</div>';
-  setContent('<h2>Usage &amp; Limits</h2><p style="font-size:13px;color:#94a3b8;margin-bottom:16px">Daily usage vs free tier limits per provider. <a href="/admin/api/analytics?format=csv" style="color:#38bdf8" target="_blank">Export CSV</a></p>' + html);
+  setContent(html);
 }
 
 async function renderSettings() {
@@ -479,7 +480,7 @@ async function renderHealth() {
       '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'â€”') + ' | CB: ' + esc(item.cbState||'â€”') + '</p>' +
       (item.error ? '<pre style="font-size:11px;margin-top:4px">' + esc(item.error) + '</pre>' : '') + '</div>';
   }
-  setContent('<div class="cards">' + (cards || '<p>No results</p>') + '</div>');
+  setContent('<h2>Health Check</h2><div class="page-desc">Probe each provider key to verify connectivity and authentication. Shows HTTP status, circuit-breaker state, and any error messages returned by the upstream API.</div><div class="cards">' + (cards || '<p>No results</p>') + '</div>');
 }
 async function renderSetup() {
   setContent(`
