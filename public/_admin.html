@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Buddhi Dwar Admin</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:'Inter',system-ui,-apple-system,sans-serif}
+body{display:flex;min-height:100vh;background:linear-gradient(135deg,#0a0e1a 0%,#0f1629 40%,#121b33 100%);color:#e2e8f0}
+.sidebar{width:240px;background:rgba(17,24,39,.85);backdrop-filter:blur(12px);padding:24px 0;border-right:1px solid rgba(56,189,248,.1);flex-shrink:0;height:100vh;position:sticky;top:0;overflow-y:auto}
+.sidebar h1{font-size:22px;font-weight:800;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;padding:0 20px 24px;border-bottom:1px solid rgba(56,189,248,.1);margin-bottom:12px;letter-spacing:-.5px}
+.sidebar a{display:flex;align-items:center;gap:12px;padding:11px 20px;color:#8899b4;text-decoration:none;font-size:14px;font-weight:500;cursor:pointer;transition:all .2s;margin:2px 8px;border-radius:10px}
+.sidebar a:hover{background:rgba(56,189,248,.08);color:#e2e8f0}
+.sidebar a.active{background:linear-gradient(135deg,rgba(56,189,248,.12),rgba(129,140,248,.08));color:#38bdf8;box-shadow:inset 2px 0 0 #38bdf8}
+.main{flex:1;padding:32px;max-width:1200px}section{display:none}section.active{display:block}
+h2{font-size:22px;font-weight:700;color:#f1f5f9;margin-bottom:20px;padding-bottom:10px;border-bottom:1px solid rgba(56,189,248,.08);letter-spacing:-.3px}
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-bottom:28px}
+.card{background:linear-gradient(135deg,rgba(30,41,59,.6),rgba(30,41,59,.3));border-radius:14px;padding:20px;border:1px solid rgba(56,189,248,.08);backdrop-filter:blur(8px);transition:transform .2s,border-color .2s}
+.card:hover{transform:translateY(-2px);border-color:rgba(56,189,248,.2)}
+.card .num{font-size:30px;font-weight:800;color:#38bdf8;letter-spacing:-.5px}
+.card .lbl{font-size:11px;color:#7488a8;margin-top:6px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-bottom:16px;border-radius:12px;overflow:hidden}
+th{color:#7488a8;font-weight:600;padding:14px 12px;border-bottom:1px solid rgba(56,189,248,.08);text-align:left;font-size:11px;text-transform:uppercase;letter-spacing:.8px;background:rgba(15,23,42,.4)}
+td{padding:12px;border-bottom:1px solid rgba(30,41,59,.4);color:#e2e8f0}
+tr:hover td{background:rgba(56,189,248,.03)}
+input,select{padding:11px 14px;border-radius:10px;border:1px solid rgba(71,85,105,.4);background:rgba(15,23,42,.6);color:#e2e8f0;font-size:14px;width:100%;max-width:400px;margin:4px 0;outline:none;transition:all .2s}
+input:focus,select:focus{border-color:#38bdf8;box-shadow:0 0 0 3px rgba(56,189,248,.12)}
+button{padding:11px 22px;border-radius:10px;border:none;font-size:14px;font-weight:600;cursor:pointer;margin:4px 4px 4px 0;transition:all .2s;position:relative;overflow:hidden}
+button:active{transform:scale(.97)}
+button.primary{background:linear-gradient(135deg,#38bdf8,#6366f1);color:#fff;box-shadow:0 2px 12px rgba(56,189,248,.2)}button.primary:hover{box-shadow:0 4px 20px rgba(56,189,248,.35)}
+button.danger{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff;box-shadow:0 2px 12px rgba(239,68,68,.2)}button.danger:hover{box-shadow:0 4px 20px rgba(239,68,68,.35)}
+button.secondary{background:rgba(51,65,85,.5);color:#e2e8f0;border:1px solid rgba(71,85,105,.3)}button.secondary:hover{background:rgba(51,65,85,.8)}
+pre{background:rgba(15,23,42,.6);padding:18px;border-radius:12px;overflow:auto;font-size:13px;max-height:500px;line-height:1.6;border:1px solid rgba(56,189,248,.08);font-family:'Fira Code','Consolas',monospace}
+.tag{display:inline-block;padding:3px 12px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.3px}
+.tag.ok{background:rgba(22,163,74,.15);color:#86efac;border:1px solid rgba(22,163,74,.3)}
+.tag.fail{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.tag.active{background:rgba(59,130,246,.15);color:#93c5fd;border:1px solid rgba(59,130,246,.3)}
+.tag.warning{background:rgba(234,179,8,.15);color:#fde68a;border:1px solid rgba(234,179,8,.3)}
+.tag.closed{background:rgba(22,163,74,.15);color:#86efac;border:1px solid rgba(22,163,74,.3)}
+.tag.open{background:rgba(239,68,68,.15);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+.tag.half-open{background:rgba(234,179,8,.15);color:#fde68a;border:1px solid rgba(234,179,8,.3)}
+.form-row{display:flex;gap:14px;align-items:end;flex-wrap:wrap;margin-bottom:20px}
+.form-row>*{flex:1;min-width:200px}
+.form-row button{flex:0 0 auto}
+.form-group label{display:block;font-size:11px;color:#7488a8;margin-bottom:6px;text-transform:uppercase;letter-spacing:.8px;font-weight:600}
+.toast{position:fixed;top:24px;right:24px;padding:14px 24px;border-radius:12px;font-size:14px;font-weight:500;z-index:1000;animation:slideIn .35s cubic-bezier(.16,1,.3,1);max-width:420px;backdrop-filter:blur(12px);box-shadow:0 8px 32px rgba(0,0,0,.4)}
+.toast.success{background:rgba(22,163,74,.2);color:#86efac;border:1px solid rgba(22,163,74,.3)}
+.toast.error{background:rgba(239,68,68,.2);color:#fca5a5;border:1px solid rgba(239,68,68,.3)}
+@keyframes slideIn{from{transform:translateX(120%) scale(.9);opacity:0}to{transform:translateX(0) scale(1);opacity:1}}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.ico{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:6px;flex-shrink:0;font-size:11px;font-weight:700}
+.ico-overview{background:rgba(56,189,248,.15);color:#38bdf8}.ico-keys{background:rgba(245,158,11,.15);color:#f59e0b}
+.ico-gateway{background:rgba(167,139,250,.15);color:#a78bfa}.ico-strategy{background:rgba(52,211,153,.15);color:#34d399}
+.ico-logs{background:rgba(248,113,113,.15);color:#f87171}.ico-analytics{background:rgba(251,146,60,.15);color:#fb923c}
+.ico-settings{background:rgba(148,163,184,.15);color:#e2e8f0}.ico-health{background:rgba(244,114,182,.15);color:#f472b6}
+.ico-setup{background:rgba(34,211,238,.15);color:#22d3ee}
+#login-overlay{position:fixed;inset:0;background:linear-gradient(135deg,#0a0e1a 0%,#0f1629 40%,#121b33 100%);display:flex;align-items:center;justify-content:center;z-index:9999}
+#login-overlay.hidden{display:none}
+.login-box{background:rgba(30,41,59,.6);backdrop-filter:blur(20px);padding:48px;border-radius:20px;border:1px solid rgba(56,189,248,.1);width:380px;max-width:90vw;box-shadow:0 16px 48px rgba(0,0,0,.5);animation:fadeIn .5s cubic-bezier(.16,1,.3,1)}
+.login-box h1{font-size:28px;font-weight:800;background:linear-gradient(135deg,#38bdf8,#818cf8);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px}
+.login-box input{width:100%;padding:14px 16px;border-radius:12px;border:1px solid rgba(71,85,105,.4);background:rgba(15,23,42,.6);color:#e2e8f0;font-size:16px;outline:none;transition:all .2s}
+.login-box input:focus{border-color:#38bdf8;box-shadow:0 0 0 3px rgba(56,189,248,.12)}
+.login-box button{width:100%;padding:14px;border-radius:12px;font-size:15px;margin:0}
+#loading-bar{position:fixed;top:0;left:0;height:3px;background:linear-gradient(90deg,#38bdf8,#818cf8,#38bdf8);background-size:200% 100%;z-index:99999;transition:width .4s cubic-bezier(.16,1,.3,1),opacity .3s;width:0;opacity:0;border-radius:0 2px 2px 0;box-shadow:0 0 12px rgba(56,189,248,.5)}
+#loading-bar.active{opacity:1}button.loading{pointer-events:none;opacity:.7;position:relative}button.loading::after{content:'';position:absolute;inset:0;border-radius:inherit;background:linear-gradient(90deg,transparent,rgba(255,255,255,.1),transparent);background-size:200% 100%;animation:shimmer 1.2s infinite}
+@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+.pagination{display:flex;gap:8px;align-items:center;margin-top:12px;font-size:13px;color:#7488a8}
+.pagination button{padding:6px 14px;font-size:12px;border-radius:8px}
+summary{color:#38bdf8;font-weight:600;cursor:pointer;padding:8px 0;font-size:14px}
+details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:1px solid rgba(56,189,248,.06);margin-bottom:16px}
+.page-desc{background:rgba(56,189,248,.06);border-left:3px solid #38bdf8;padding:12px 16px;border-radius:0 10px 10px 0;margin-bottom:20px;font-size:13px;color:#94a3b8;line-height:1.6}
+@media(max-width:768px){.sidebar{width:60px;padding:16px 0}.sidebar h1,.sidebar a span:last-child{display:none}.sidebar a{justify-content:center;padding:11px 0;margin:2px 6px}.main{padding:20px}.grid-2{grid-template-columns:1fr}}
+@media(max-width:480px){.sidebar{width:48px}.main{padding:16px}.cards{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+<div id="login-overlay">
+  <div class="login-box">
+    <h1>Buddhi Dwar</h1>
+    <p style="color:#8899b4;margin-bottom:24px;font-size:14px">Admin Dashboard Login</p>
+    <input id="login-pw" type="password" placeholder="Enter admin password">
+    <button class="primary" onclick="doLogin()">Login</button>
+    <p id="login-error" style="color:#fca5a5;font-size:13px;margin-top:10px;display:none">Invalid password</p>
+  </div>
+</div>
+<div id="loading-bar"></div>
+<div class="sidebar">
+<h1>Buddhi Dwar</h1>
+<a onclick="showTab('overview')" id="nav-overview" class="active"><span class="ico ico-overview">&#9679;</span><span>Overview</span></a>
+<a onclick="showTab('keys')" id="nav-keys"><span class="ico ico-keys">&#9881;</span><span>API Keys</span></a>
+<a onclick="showTab('gateway')" id="nav-gateway"><span class="ico ico-gateway">&#128274;</span><span>Gateway Keys</span></a>
+<a onclick="showTab('strategy')" id="nav-strategy"><span class="ico ico-strategy">&#8644;</span><span>Strategy</span></a>
+<!-- logs and req-logs removed (KV space) -->
+<a onclick="showTab('analytics')" id="nav-analytics"><span class="ico ico-analytics">&#128200;</span><span>Analytics</span></a>
+<a onclick="showTab('usage')" id="nav-usage"><span class="ico ico-overview">&#128200;</span><span>Usage</span></a>
+<a onclick="showTab('settings')" id="nav-settings"><span class="ico ico-settings">&#9881;</span><span>Settings</span></a>
+<a onclick="showTab('health')" id="nav-health"><span class="ico ico-health">&#10003;</span><span>Health Check</span></a>
+<a onclick="showTab('setup')" id="nav-setup"><span class="ico ico-setup">&#8505;</span><span>Setup</span></a>
+<a onclick="logout()" style="margin-top:auto;border-top:1px solid rgba(248,113,113,.15);padding-top:14px;color:#f87171"><span class="ico ico-logs">&#10227;</span><span>Logout</span></a>
+</div>
+<div class="main" id="main-content"></div>
+<script>
+let _loadingCount = 0;
+let _adminToken = sessionStorage.getItem('bf_admin_token') || '';
+function showLoading() { _loadingCount++; const b = document.getElementById('loading-bar'); if (b) { b.style.width = '30%'; b.classList.add('active'); } }
+function hideLoading() { _loadingCount--; if (_loadingCount <= 0) { _loadingCount = 0; const b = document.getElementById('loading-bar'); if (b) { b.style.width = '100%'; setTimeout(() => { b.style.width = '0'; b.classList.remove('active'); }, 300); } } }
+function getPw() { if (_adminToken) return _adminToken; try { return document.cookie.match(/bfadmin=([^;]+)/)[1] || '' } catch { return '' } }
+function api(path, opts) {
+  showLoading();
+  const hdrs = { 'Content-Type': 'application/json', ...(opts || {}).headers };
+  if (_adminToken) hdrs['X-Admin-Auth'] = _adminToken;
+  return fetch('/admin/api' + path, {
+    headers: hdrs,
+    credentials: 'same-origin', ...(opts || {})
+  }).then(r => { hideLoading(); if (r.status === 401) { document.cookie = 'bfadmin=;max-age=0'; _adminToken = ''; sessionStorage.removeItem('bf_admin_token'); showLogin(); throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
+}
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
+async function copyKey(pname, id) {
+  try { const r = await api('/keys?full=1&pname=' + encodeURIComponent(pname) + '&id=' + encodeURIComponent(id)); if (r.apiKey) { await navigator.clipboard.writeText(r.apiKey); showToast('Key copied', 'success'); } else showToast('Failed to get key', 'error'); } catch { showToast('Failed to copy', 'error'); }
+}
+function showToast(msg, type) {
+  const ico = type === 'success' ? '\u2713' : type === 'error' ? '\u2717' : '\u2139';
+  const t = document.createElement('div'); t.className = 'toast ' + type;
+  t.innerHTML = '<span style="margin-right:10px;font-size:16px">' + ico + '</span>';
+  t.appendChild(document.createTextNode(msg));
+  document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
+}
+function showLogin() { document.getElementById('login-overlay').classList.remove('hidden'); document.getElementById('main-content').innerHTML = ''; }
+function doLogin() {
+  const pw = document.getElementById('login-pw').value;
+  const err = document.getElementById('login-error');
+  const btn = document.querySelector('.login-box button');
+  if (!pw) { err.style.display = 'block'; err.textContent = 'Enter a password'; return; }
+  err.style.display = 'none'; btn.classList.add('loading'); btn.textContent = 'Signing in...';
+  fetch('/admin/api/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ password: pw }), credentials: 'same-origin' }).then(r => {
+    btn.classList.remove('loading'); btn.textContent = 'Login';
+    if (r.ok) { _adminToken = pw; sessionStorage.setItem('bf_admin_token', pw); err.style.display = 'none'; document.getElementById('login-overlay').classList.add('hidden'); showTab('overview'); showToast('Welcome back', 'success'); }
+    else { err.style.display = 'block'; err.textContent = 'Invalid password'; }
+  }).catch(() => { btn.classList.remove('loading'); btn.textContent = 'Login'; err.style.display = 'block'; err.textContent = 'Connection error'; });
+}
+document.getElementById('login-pw').addEventListener('keydown', function(e) { if (e.key === 'Enter') doLogin(); });
+function logout() { document.cookie = 'bfadmin=;max-age=0'; _adminToken = ''; sessionStorage.removeItem('bf_admin_token'); showLogin(); showToast('Logged out', 'success'); }
+function showTab(name) {
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  const nav = document.getElementById('nav-' + name); if (nav) nav.classList.add('active');
+  if (PAGES[name] && PAGES[name].render) PAGES[name].render();
+}
+function setContent(h) {
+  const el = document.getElementById('main-content');
+  el.style.opacity = '0';
+  setTimeout(() => { el.innerHTML = h; el.style.transition = 'opacity .25s'; el.style.opacity = '1'; }, 50);
+}
+const PAGES = {
+  overview: { title: 'Dashboard Overview', render: renderOverview },
+  keys: { title: 'API Keys', render: renderKeys },
+  gateway: { title: 'Gateway Keys', render: renderGateway },
+  strategy: { title: 'Routing Strategy', render: renderStrategy },
+  // logs and req-logs removed (KV space)
+  analytics: { title: 'Analytics', render: renderAnalytics },
+  usage: { title: 'Usage & Limits', render: renderUsage },
+  settings: { title: 'Settings', render: renderSettings },
+  health: { title: 'Health Check', render: renderHealth },
+  setup: { title: 'Setup Guide', render: renderSetup }
+};
+if (!getPw()) { showLogin(); } else { document.getElementById('login-overlay').classList.add('hidden'); }
+async function renderOverview() {
+  const s = await api('/stats');
+  const a = await api('/analytics?days=7');
+  let totalCost = 0; let totalTokens = 0;
+  if (Array.isArray(a)) { a.forEach(d => { totalCost += d.totalCost || 0; totalTokens += (d.totalPromptTokens || 0) + (d.totalCompletionTokens || 0); }); }
+  const copyUrl = () => { navigator.clipboard.writeText('https://buddhi-dwar.richard-brown-miami.workers.dev/v1/chat/completions'); showToast('URL copied', 'success'); };
+  setContent(`
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <h2 style="margin:0;border:none;padding:0">Dashboard Overview</h2>
+      <span style="font-size:12px;color:#7488a8">${new Date().toLocaleTimeString()}</span>
+    </div>
+    <div class="page-desc">Monitor overall gateway performance: request count, key health by status (active/dead/expired/warming), estimated cost and token usage across all providers over the last 7 days.</div>
+    <div class="cards">
+      <div class="card" style="background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div class="num">${s.requestsToday || 0}</div><div class="lbl">Requests Today</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(99,102,241,.08),rgba(139,92,246,.05))"><div class="num">${s.totalKeys || 0}</div><div class="lbl">Total Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(22,163,74,.05))"><div class="num" style="color:#86efac">${s.activeKeys || 0}</div><div class="lbl" style="color:#86efac">Active Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(220,38,38,.05))"><div class="num" style="color:#fca5a5">${s.deadKeys || 0}</div><div class="lbl" style="color:#fca5a5">Dead Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(234,179,8,.08),rgba(202,138,4,.05))"><div class="num" style="color:#fde68a">${s.warmingKeys || 0}</div><div class="lbl" style="color:#fde68a">Warming Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(192,132,252,.08),rgba(168,85,247,.05))"><div class="num" style="color:#c084fc">${s.expiredKeys || 0}</div><div class="lbl" style="color:#c084fc">Expired Keys</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(245,158,11,.05))"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl" style="color:#fde68a">Est. Cost (7d)</div></div>
+      <div class="card" style="background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(37,99,235,.05))"><div class="num" style="color:#93c5fd">${totalTokens.toLocaleString()}</div><div class="lbl" style="color:#93c5fd">Tokens (7d)</div></div>
+    </div>
+    <div class="card" style="grid-column:1/-1;border-color:rgba(56,189,248,.25);background:linear-gradient(135deg,rgba(56,189,248,.06),rgba(99,102,241,.04));margin-bottom:20px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:12px;color:#7488a8;font-weight:600;text-transform:uppercase;letter-spacing:.6px">Your Gateway URL</span>
+        <button onclick="${copyUrl}" class="secondary" style="padding:6px 14px;font-size:12px;margin:0">Copy URL</button>
+      </div>
+      <code style="font-size:14px;color:#38bdf8;word-break:break-all;display:block;padding:10px 14px;background:rgba(15,23,42,.4);border-radius:8px;font-family:'Fira Code','Consolas',monospace">https://buddhi-dwar.richard-brown-miami.workers.dev/v1/chat/completions</code>
+      <div style="font-size:12px;color:#fde68a;margin-top:8px">Use a Gateway Key as Bearer token. See Setup tab for examples.</div>
+    </div>
+    <h2 style="margin-top:8px">Provider Usage Today</h2>
+    <div class="cards" id="usage-mini" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">Loading...</div>
+    <h2 style="margin-top:8px">Daily Requests (7 days)</h2>
+    <pre>${esc(JSON.stringify(a, null, 2))}</pre>
+  `);
+  try {
+    const ur = await api('/key-usage');
+    const ud = ur.providers || ur;
+    const t = ur.totals || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0, keys: 0 };
+    const el = document.getElementById('usage-mini');
+    if (!el) return;
+    let cards = '<div class="card" style="padding:12px 16px;background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div style="font-size:16px;font-weight:700;color:#38bdf8">' + t.requests + '</div><div style="font-size:10px;color:#7488a8">Total Req</div></div>' +
+      '<div class="card" style="padding:12px 16px"><div style="font-size:16px;font-weight:700;color:#fde68a">$' + t.cost.toFixed(4) + '</div><div style="font-size:10px;color:#7488a8">Total Cost</div></div>';
+    for (const [pn, pd] of Object.entries(ud)) {
+      const lim = pd.limit || {}; const dReq = lim.dailyRequests || 999999;
+      let tr = 0; for (const k of pd.keys) tr += k.usage.requests;
+      const pct = Math.min(100, Math.round(tr / dReq * 100));
+      const col = pct > 80 ? '#f87171' : pct > 50 ? '#fbbf24' : '#38bdf8';
+      cards += '<div class="card" style="padding:12px 16px"><div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px"><span>' + esc(pn) + '</span><span style="color:' + col + '">' + tr + '</span></div>' +
+        '<div style="height:6px;background:rgba(71,85,105,.4);border-radius:3px;overflow:hidden"><div style="width:' + pct + '%;height:100%;background:' + col + ';border-radius:3px"></div></div>' +
+        '<div style="font-size:10px;color:#7488a8;margin-top:2px">limit: ' + dReq + ' req/day</div></div>';
+    }
+    el.innerHTML = cards || '<p style="color:#94a3b8">No data</p>';
+  } catch {}
+}
+async function renderKeys() {
+  const [raw, health] = await Promise.all([api('/keys'), api('/keys-health')]);
+  const hMap = {};
+  for (const [prov, items] of Object.entries(health || {})) { hMap[prov] = {}; for (const it of items) hMap[prov][it.id] = it; }
+  let rows = '';
+  for (const [pname, keys] of Object.entries(raw)) {
+    for (const k of keys) {
+      const ms = (k.models||[]).slice(0,3).join(', ');
+      const masked = (k.apiKey||'').includes('****') ? k.apiKey : '****';
+      const hi = hMap[pname]?.[k.id];
+      const st = hi?.status || 'unknown';
+      const cb = hi?.cbState || 'closed';
+      const cooling = hi?.cooling || false;
+      const err = hi?.lastError || '';
+      const stClass = st === 'active' ? 'ok' : st === 'dead' ? 'fail' : st === 'expired' ? 'warning' : 'warning';
+      const stLabel = st + (cb === 'open' ? ' ðŸ”“' : cb === 'half-open' ? ' ðŸ”„' : '') + (cooling ? ' â³' : '');
+      const errShort = err ? ' <span style="font-size:10px;color:#f87171">' + esc(err.slice(0, 60)) + '</span>' : '';
+      rows += '<tr><td>' + esc(pname) + '</td><td style="font-size:11px;color:#94a3b8">' + esc(k.label||'') + '</td>' +
+        '<td><code style="font-size:11px;color:#94a3b8;user-select:none">' + masked + '</code></td>' +
+        '<td><span class="tag ' + stClass + '" id="st-' + esc(k.id) + '" style="cursor:help" title="CB: ' + cb + (cooling ? ' | cooling 60s' : '') + (err ? ' | ' + esc(err) : '') + '">' + stLabel + '</span></td>' +
+        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + esc(ms || 'â€”') + '</td>' +
+        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : 'â€”') + '</td>' +
+'<td><button class="primary" onclick="copyKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Copy</button> ' +
+'<button class="secondary" onclick="testKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Test</button> ' +
+'<button class="secondary" onclick="reDetectKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Models</button> ' +
+'<button class="danger" onclick="deleteKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Del</button></td></tr>';
+    }
+  }
+  setContent(`
+    <h2>API Keys</h2>
+    <div class="page-desc">Manage provider API keys for Groq, Google Gemini, Mistral, OpenRouter, DeepSeek, and Together AI. Each key shows live health status (active/dead/expired/warming), circuit-breaker state (closed/open/half-open), and rate-limit cooldown. Click Test to probe the key, or Models to re-detect available models. Circuit breaker opens after 5 consecutive failures; rate-limit (429) triggers a 1-minute cooldown.</div>
+    <div class="form-row">
+      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>groq</option><option>google</option><option>mistral</option><option>openrouter</option><option>deepseek</option><option>together</option></select></div>
+      <div class="form-group"><label>API Key</label><input id="kp-key" placeholder="sk-..."></div>
+      <div class="form-group"><label>Label</label><input id="kp-label" placeholder="my-key"></div>
+      <button class="primary" onclick="addKey()">Add Key</button>
+    </div>
+    <details style="margin-bottom:16px;font-size:13px;color:#94a3b8;cursor:pointer">
+      <summary style="color:#38bdf8;font-size:14px;font-weight:600">Provider Key Links</summary>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <a href="https://console.groq.com/keys" target="_blank" style="color:#38bdf8">Groq console.groq.com</a>
+        <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#38bdf8">Google aistudio.google.com</a>
+        <a href="https://console.mistral.ai/api-keys" target="_blank" style="color:#38bdf8">Mistral console.mistral.ai</a>
+        <a href="https://openrouter.ai/keys" target="_blank" style="color:#38bdf8">OpenRouter openrouter.ai</a>
+      </div>
+    </details>
+    <table><thead><tr><th>Provider</th><th>Label</th><th>Key</th><th>Status</th><th>Models</th><th>Added</th><th></th></tr></thead>
+    <tbody>' + rows + '</tbody></table>
+  `);
+}
+  }
+  setContent(`
+    <h2>API Keys</h2>
+    <div class="page-desc">Manage provider API keys for Groq, Google Gemini, Mistral, OpenRouter, DeepSeek, and Together AI. Keys that fail 5+ consecutive requests are circuit-broken. Keys hit by rate-limit (429) get a 1-minute cooldown before retry.</div>
+    <div class="form-row">
+      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>groq</option><option>google</option><option>mistral</option><option>openrouter</option><option>deepseek</option><option>together</option></select></div>
+      <div class="form-group"><label>API Key</label><input id="kp-key" placeholder="sk-..."></div>
+      <div class="form-group"><label>Label</label><input id="kp-label" placeholder="my-key"></div>
+      <button class="primary" onclick="addKey()">Add Key</button>
+    </div>
+    <details style="margin-bottom:16px;font-size:13px;color:#94a3b8;cursor:pointer">
+      <summary style="color:#38bdf8;font-size:14px;font-weight:600">Provider Key Links</summary>
+      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
+        <a href="https://console.groq.com/keys" target="_blank" style="color:#38bdf8">Groq console.groq.com</a>
+        <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#38bdf8">Google aistudio.google.com</a>
+        <a href="https://console.mistral.ai/api-keys" target="_blank" style="color:#38bdf8">Mistral console.mistral.ai</a>
+        <a href="https://openrouter.ai/keys" target="_blank" style="color:#38bdf8">OpenRouter openrouter.ai</a>
+      </div>
+    </details>
+    <table><thead><tr><th>Provider</th><th>Label</th><th>Key</th><th>Status</th><th>Models</th><th>Added</th><th></th></tr></thead>
+    <tbody>' + rows + '</tbody></table>
+  `);
+}
+async function testKey(pname, id) {
+  const el = document.getElementById('st-' + id);
+  if (el) el.innerHTML = 'testing...';
+  const h = await api('/test-key', { method: 'POST', body: JSON.stringify({ pname, id }) });
+  const st = h.ok ? 'ok' : 'fail';
+  if (el) { el.className = 'tag ' + st; el.innerHTML = st; }
+}
+async function reDetectKey(pname, id) {
+  const r = await api('/redetect-models', { method: 'POST', body: JSON.stringify({ pname, id }) });
+  if (r.ok) { showToast('Models updated: ' + (r.models||[]).join(', '), 'success'); renderKeys(); }
+  else { showToast(r.error || 'Failed', 'error'); }
+}
+async function deleteKey(pname, id) { if (!confirm('Delete key?')) return; await api('/keys', { method: 'DELETE', body: JSON.stringify({ pname, id }) }); renderKeys(); }
+async function addKey() {
+  const pname = document.getElementById('kp-provider').value;
+  const apiKey = document.getElementById('kp-key').value;
+  const label = document.getElementById('kp-label').value || (pname + '_' + Date.now());
+  if (!apiKey) { showToast('Enter API key', 'error'); return; }
+  const r = await api('/keys', { method: 'POST', body: JSON.stringify({ pname, apiKey, label }) });
+  if (r.ok) { showToast('Key added successfully', 'success'); renderKeys(); }
+  else { showToast(r.error || 'Failed', 'error'); }
+}
+async function renderGateway() {
+  const g = await api('/gateway-keys');
+  let rows = g.map(k => '<tr data-word="' + esc(k.word) + '" data-enabled="' + k.enabled + '"><td>' + esc(k.word) + '</td>' +
+    '<td><span class="tag ' + (k.enabled?'active':'fail') + '">' + (k.enabled?'Active':'Disabled') + '</span></td>' +
+    '<td>' + (k.usage||0) + '</td>' +
+    '<td style="font-size:12px;color:#94a3b8">' + (k.createdAt ? new Date(k.createdAt).toLocaleDateString() : '') + '</td>' +
+    '<td><button onclick="toggleGw(this)" style="padding:4px 10px;font-size:12px">' + (k.enabled?'Disable':'Enable') + '</button>' +
+    '<button class="danger" onclick="deleteGw(this)" style="padding:4px 10px;font-size:12px">Del</button></td></tr>').join('');
+  setContent(`
+    <h2>Gateway Keys</h2>
+    <div class="page-desc">Create API keys for external clients that proxy through this gateway. Each key has usage tracking and can be enabled/disabled independently. Generate a random key or create a custom word-based token.</div>
+    <div class="form-row">
+      <div class="form-group"><label>Gateway Key (word/token)</label><input id="gw-word" placeholder="my-app-key"></div>
+      <button class="primary" onclick="addGw()">Add Key</button>
+      <button class="secondary" onclick="genGwKey()">Generate Key</button>
+    </div>
+    <table><thead><tr><th>Word</th><th>Status</th><th>Usage</th><th>Created</th><th></th></tr></thead>
+    <tbody>${rows}</tbody></table>
+  `);
+}
+async function toggleGw(el){const tr=el.closest('tr');const word=tr.dataset.word;const enabled=tr.dataset.enabled==='true'?false:true;await api('/gateway-keys',{method:'PATCH',body:JSON.stringify({word,enabled})}); renderGateway();}
+async function deleteGw(el){const word=el.closest('tr').dataset.word;if(!confirm('Delete "'+word+'"?'))return;await api('/gateway-keys',{method:'DELETE',body:JSON.stringify({word})}); renderGateway();}
+async function addGw(){
+  const word=document.getElementById('gw-word').value;
+  if(!word){showToast('Word required','error');return}
+  await api('/gateway-keys',{method:'POST',body:JSON.stringify({word})});
+  showToast('Added','success'); renderGateway();
+}
+async function genGwKey() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  let key = '';
+  for (let i = 0; i < 32; i++) {
+    if (i > 0 && i % 8 === 0) key += '-';
+    key += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  const r = await api('/gateway-keys', { method: 'POST', body: JSON.stringify({ word: key }) });
+  if (r.ok) { showToast('Key generated and saved: ' + key, 'success'); renderGateway(); }
+  else { showToast('Failed to save key', 'error'); }
+}
+async function renderStrategy() {
+  const s = await api('/strategy');
+  let html = '<h2>Routing Strategy</h2><div class="page-desc">Choose how the gateway selects between multiple API keys for the same provider. Round-robin cycles evenly, lowest-latency picks fastest, least-loaded picks lowest failure ratio.</div><div class="cards">';
+  for (const [prov, strat] of Object.entries(s)) {
+    html += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:8px">' + esc(prov) + '</h3>' +
+      '<p style="font-size:13px;color:#94a3b8">Strategy: <b style="color:#e2e8f0">' + esc(strat) + '</b></p></div>';
+  }
+  html += '</div><h2 style="margin-top:24px">Set Strategy</h2><div class="form-row">' +
+    '<div class="form-group"><label>Provider</label><select id="str-provider">' + ['groq','google','mistral','openrouter','deepseek','together'].map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
+    '<div class="form-group"><label>Strategy</label><select id="str-strategy"><option>round-robin</option><option>lowest-latency</option><option>least-loaded</option></select></div>' +
+    '<button class="primary" onclick="updateStr()">Set</button></div>' +
+    '<h2>Raw</h2><pre>' + esc(JSON.stringify(s, null, 2)) + '</pre>';
+  setContent(html);
+}
+async function updateStr() {
+  const pname = document.getElementById('str-provider').value;
+  const strategy = document.getElementById('str-strategy').value;
+  await api('/strategy', { method: 'POST', body: JSON.stringify({ pname, strategy }) });
+  showToast('Updated', 'success'); renderStrategy();
+}
+async function renderAnalytics() {
+  const a = await api('/analytics?days=30');
+  if(!Array.isArray(a)||a.length===0){setContent('<p>No analytics data</p>');return}
+  let rows = a.map(d => '<tr><td>' + (d.date||'Ã¢â‚¬â€') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
+    '<td>' + (d.successes||0) + '</td><td>' + ((d.totalPromptTokens||0).toLocaleString()) + '</td>' +
+    '<td>' + ((d.totalCompletionTokens||0).toLocaleString()) + '</td><td>$' + ((d.totalCost||0).toFixed(4)) + '</td></tr>').join('');
+  let totalReq=0,totalFail=0,totalCost=0,totalPrompt=0,totalComp=0;
+  a.forEach(d=>{totalReq+=d.requests||0;totalFail+=d.failures||0;totalCost+=d.totalCost||0;totalPrompt+=d.totalPromptTokens||0;totalComp+=d.totalCompletionTokens||0;});
+  setContent(`
+    <h2>Analytics</h2>
+    <div class="page-desc">View request metrics over the last 30 days: volume, success/failure rates, token usage, and estimated cost per provider. Use the Export CSV button for offline analysis.</div>
+    <div class="cards">
+      <div class="card"><div class="num">${totalReq}</div><div class="lbl">Requests (30d)</div></div>
+      <div class="card"><div class="num" style="color:#fca5a5">${totalFail}</div><div class="lbl">Errors (30d)</div></div>
+      <div class="card"><div class="num" style="color:#fde68a">$${totalCost.toFixed(4)}</div><div class="lbl">Cost (30d)</div></div>
+      <div class="card"><div class="num">${(totalPrompt+totalComp).toLocaleString()}</div><div class="lbl">Tokens (30d)</div></div>
+    </div>
+    <div style="margin-bottom:12px"><button class="secondary" onclick="exportAnalytics()">Export CSV</button></div>
+    <table><thead><tr><th>Date</th><th>Req</th><th>Err</th><th>Success</th><th>Prompt Tok</th><th>Comp Tok</th><th>Cost</th></tr></thead><tbody>${rows}</tbody></table>
+  `);
+}
+function exportAnalytics() {
+  window.open('/admin/api/analytics?days=30&format=csv', '_blank');
+}
+async function renderUsage() {
+  const raw = await api('/key-usage');
+  const data = raw.providers || raw;
+  const totals = raw.totals || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0, providers: 0, keys: 0 };
+  let html = '<h2>Usage &amp; Limits</h2><div class="page-desc">Monitor today\'s request volume, token consumption, and estimated cost per provider. Progress bars show usage against daily quotas. Rate-limit headers from upstream providers are displayed per key.</div><div class="cards" style="margin-bottom:20px">' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div class="num">' + totals.requests + '</div><div class="lbl">Total Requests Today</div></div>' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(34,197,94,.08),rgba(22,163,74,.05))"><div class="num" style="color:#86efac">' + totals.successes + '</div><div class="lbl" style="color:#86efac">Successes</div></div>' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(239,68,68,.08),rgba(220,38,38,.05))"><div class="num" style="color:#fca5a5">' + totals.failures + '</div><div class="lbl" style="color:#fca5a5">Failures</div></div>' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(59,130,246,.08),rgba(37,99,235,.05))"><div class="num" style="color:#93c5fd">' + (totals.promptTokens + totals.completionTokens).toLocaleString() + '</div><div class="lbl" style="color:#93c5fd">Total Tokens</div></div>' +
+    '<div class="card" style="background:linear-gradient(135deg,rgba(251,191,36,.08),rgba(245,158,11,.05))"><div class="num" style="color:#fde68a">$' + totals.cost.toFixed(6) + '</div><div class="lbl" style="color:#fde68a">Total Cost</div></div>' +
+    '<div class="card"><div class="num">' + totals.keys + '</div><div class="lbl">Active Keys</div></div>' +
+    '</div><div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">';
+  for (const [pname, pdata] of Object.entries(data)) {
+    const lim = pdata.limit || {};
+    const dReq = lim.dailyRequests || 999999;
+    const dTok = lim.dailyTokens || 999999999;
+    let totReq = 0, totTok = 0, totCost = 0;
+    let rlHtml = '';
+    for (const k of pdata.keys) { 
+      totReq += k.usage.requests; totTok += k.usage.promptTokens + k.usage.completionTokens; totCost += k.usage.cost;
+      if (k.rateLimit) {
+        const rrem = k.rateLimit['x-ratelimit-remaining-requests'] || k.rateLimit['x-ratelimit-remaining'] || '?';
+        const rlim = k.rateLimit['x-ratelimit-limit-requests'] || k.rateLimit['x-ratelimit-limit'] || '?';
+        const trem = k.rateLimit['x-ratelimit-remaining-tokens'] || '?';
+        const tlim = k.rateLimit['x-ratelimit-limit-tokens'] || '?';
+        rlHtml += '<p style="font-size:11px;color:#86efac;margin-top:4px">Rate limit: ' + rrem + '/' + rlim + ' req, ' + trem + '/' + tlim + ' tok</p>';
+      }
+    }
+    const reqPct = Math.min(100, Math.round(totReq / dReq * 100));
+    const tokPct = Math.min(100, Math.round(totTok / dTok * 100));
+    const reqColor = reqPct > 80 ? '#f87171' : reqPct > 50 ? '#fbbf24' : '#38bdf8';
+    const tokColor = tokPct > 80 ? '#f87171' : tokPct > 50 ? '#fbbf24' : '#38bdf8';
+    html += '<div class="card" style="margin-bottom:16px"><h3 style="color:#38bdf8;margin-bottom:12px">' + esc(pname) + '</h3>' +
+      '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px"><span>Requests</span><span>' + totReq + ' / ' + dReq + '</span></div>' +
+      '<div style="height:8px;background:rgba(71,85,105,.4);border-radius:4px;overflow:hidden"><div style="width:' + reqPct + '%;height:100%;background:' + reqColor + ';border-radius:4px;transition:width .3s"></div></div></div>' +
+      '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px"><span>Tokens</span><span>' + totTok.toLocaleString() + ' / ' + dTok.toLocaleString() + '</span></div>' +
+      '<div style="height:8px;background:rgba(71,85,105,.4);border-radius:4px;overflow:hidden"><div style="width:' + tokPct + '%;height:100%;background:' + tokColor + ';border-radius:4px;transition:width .3s"></div></div></div>' +
+      (totCost > 0 ? '<p style="font-size:12px;color:#fde68a">Cost: $' + totCost.toFixed(6) + '</p>' : '') +
+      rlHtml +
+      '<p style="font-size:11px;color:#7488a8">' + pdata.keys.length + ' key(s)</p></div>';
+  }
+  if (html === '<div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">') html += '<p style="color:#94a3b8">No usage data yet</p>';
+  html += '</div>';
+  setContent(html);
+}
+
+async function renderSettings() {
+  const w = await api('/providers');
+  const provs = w.providers || [];
+  const limits = w.limits || {};
+  let provRows = provs.map((p, i) => {
+    const isDefault = ['groq','google','mistral','openrouter','deepseek','together'].includes(p.name);
+    return '<tr><td>' + esc(p.name) + (isDefault ? ' <span style="color:#7488a8;font-size:10px">default</span>' : '') + '</td>' +
+      '<td style="font-size:11px;color:#94a3b8">' + esc(p.baseUrl) + '</td>' +
+      '<td><span class="tag ' + (p.type==='google'?'warning':'ok') + '">' + esc(p.type) + '</span></td>' +
+      '<td style="font-size:11px;color:#94a3b8;max-width:160px;overflow:hidden;text-overflow:ellipsis">' + esc((p.models||[]).slice(0,3).join(', ')) + '</td>' +
+      (isDefault ? '<td></td>' : '<td><button class="danger" onclick="deleteProvider(\'' + esc(p.name) + '\')" style="padding:4px 8px;font-size:11px">Remove</button></td>') + '</tr>';
+  }).join('');
+  let limRows = Object.entries(limits).map(([k, v]) => '<tr><td>' + esc(k) + '</td><td><input id="lim-dreq-' + esc(k) + '" type="number" value="' + (v.dailyRequests||999999) + '" style="width:100px;padding:6px 8px;font-size:12px">' +
+    '</td><td><input id="lim-dtok-' + esc(k) + '" type="number" value="' + (v.dailyTokens||999999999) + '" style="width:120px;padding:6px 8px;font-size:12px">' +
+    '</td><td><input id="lim-mcost-' + esc(k) + '" type="number" value="' + (v.monthlyCostUSD||0) + '" style="width:100px;padding:6px 8px;font-size:12px"></td></tr>').join('');
+  setContent(`
+    <h2>Settings</h2>
+    <div class="page-desc">Configure custom providers (OpenAI-compatible or Google-style) with their base URLs and model lists. Set daily request/token limits per provider for usage tracking and quota enforcement.</div>
+    <h2 style="margin-top:16px">Custom Providers</h2>
+    <p style="font-size:13px;color:#94a3b8;margin-bottom:12px">Add OpenAI-compatible or Google-style providers. They auto-register in the model list, proxy, and routing.</p>
+    <div class="form-row">
+      <div class="form-group"><label>Name</label><input id="cp-name" placeholder="anthropic"></div>
+      <div class="form-group"><label>Base URL</label><input id="cp-url" placeholder="https://api.anthropic.com"></div>
+      <div class="form-group"><label>Type</label><select id="cp-type"><option>openai</option><option>google</option></select></div>
+      <div class="form-group"><label>Models (comma-sep)</label><input id="cp-models" placeholder="claude-3-opus,claude-3-sonnet"></div>
+      <button class="primary" onclick="addProvider()">Add Provider</button>
+    </div>
+    <table><thead><tr><th>Provider</th><th>Base URL</th><th>Type</th><th>Models</th><th></th></tr></thead><tbody>${provRows}</tbody></table>
+
+    <h2 style="margin-top:32px">Provider Limits</h2>
+    <p style="font-size:13px;color:#94a3b8;margin-bottom:8px">Set daily request/token limits per provider for usage tracking</p>
+    <table><thead><tr><th>Provider</th><th>Daily Requests</th><th>Daily Tokens</th><th>Monthly Cost $</th></tr></thead><tbody>${limRows}</tbody></table>
+    <button class="primary" onclick="saveLimits()" style="margin-top:12px">Save Limits</button>
+  `);
+}
+async function addProvider() {
+  const name = document.getElementById('cp-name').value.trim();
+  const baseUrl = document.getElementById('cp-url').value.trim();
+  const type = document.getElementById('cp-type').value;
+  const modelsRaw = document.getElementById('cp-models').value.trim();
+  if (!name || !baseUrl) { showToast('Name and Base URL required', 'error'); return; }
+  const models = modelsRaw ? modelsRaw.split(',').map(s => s.trim()).filter(Boolean) : [];
+  await api('/providers', { method: 'POST', body: JSON.stringify({ name, baseUrl, type, models }) });
+  showToast('Provider ' + name + ' added', 'success'); renderSettings();
+}
+async function deleteProvider(name) {
+  if (!confirm('Remove provider "' + name + '"?')) return;
+  await api('/providers?name=' + encodeURIComponent(name), { method: 'DELETE' });
+  showToast('Provider removed', 'success'); renderSettings();
+}
+async function saveLimits() {
+  const d = await api('/providers');
+  const limits = {};
+  for (const pname of Object.keys(d.limits || {})) {
+    const dreq = document.getElementById('lim-dreq-' + pname)?.value;
+    const dtok = document.getElementById('lim-dtok-' + pname)?.value;
+    const mcost = document.getElementById('lim-mcost-' + pname)?.value;
+    if (dreq) limits[pname] = { dailyRequests: parseInt(dreq) || 999999, dailyTokens: parseInt(dtok) || 999999999, monthlyCostUSD: parseFloat(mcost) || 0 };
+  }
+  await api('/providers', { method: 'POST', body: JSON.stringify({ action: 'set-limits', limits }) });
+  showToast('Limits saved', 'success'); renderSettings();
+}
+async function renderHealth() {
+  setContent('<h2>Health Check</h2><div class="page-desc">Probe each provider key to verify connectivity and authentication. Shows HTTP status, circuit-breaker state, and any error messages returned by the upstream API.</div><p>Running health checks...</p>');
+  const h = await api('/health-check');
+  let cards = '';
+  for(const item of h) {
+    const ok = item.status === 'ok' ? 'ok' : 'fail';
+    cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px">' + esc(item.provider||'') + ' / ' + esc((item.keyId||'').slice(0,8)) + '</h3>' +
+      '<p><span class="tag ' + ok + '">' + esc(item.status||'?') + '</span></p>' +
+      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'Ã¢â‚¬â€') + ' | CB: ' + esc(item.cbState||'Ã¢â‚¬â€') + '</p>' +
+      (item.error ? '<pre style="font-size:11px;margin-top:4px">' + esc(item.error) + '</pre>' : '') + '</div>';
+  }
+  setContent('<h2>Health Check</h2><div class="page-desc">Probe each provider key to verify connectivity and authentication. Shows HTTP status, circuit-breaker state, and any error messages returned by the upstream API.</div><div class="cards">' + (cards || '<p>No results</p>') + '</div>');
+}
+async function renderSetup() {
+  setContent(`
+    <h2>Setup Guide</h2>
+    <div class="page-desc">Step-by-step guide for connecting clients to the gateway. Generate a Gateway Key, then use it as the Bearer token with any OpenAI-compatible client. Supports chat completions, embeddings, and Anthropic-style messages.</div>
+    <h2>Your Gateway URL</h2>
+    <pre style="font-size:14px">POST https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions
+Authorization: Bearer &lt;your-gateway-key&gt;</pre>
+
+    <h2 style="margin-top:24px">Generate a Gateway Key</h2>
+    <p style="font-size:14px;color:#94a3b8">Go to <b>Gateway Keys</b> tab and click <b>Generate Key</b> to create a random token, or enter your own word. Use that key as the Bearer token in your apps.</p>
+
+    <h2 style="margin-top:24px">Example: cURL</h2>
+    <pre style="font-size:13px">curl -X POST https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions \\
+  -H "Authorization: Bearer YOUR_GATEWAY_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"model":"gpt-4o","messages":[{"role":"user","content":"hello"}]}'</pre>
+
+    <h2 style="margin-top:24px">Example: JavaScript (fetch)</h2>
+    <pre style="font-size:13px">const resp = await fetch("https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions", {
+  method: "POST",
+  headers: { "Authorization": "Bearer YOUR_GATEWAY_KEY", "Content-Type": "application/json" },
+  body: JSON.stringify({ model: "claude-sonnet-4-20250514", messages: [{ role: "user", content: "hi" }] })
+});
+const data = await resp.json();</pre>
+
+    <h2 style="margin-top:24px">Example: Python</h2>
+    <pre style="font-size:13px">import requests
+resp = requests.post(
+    "https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions",
+    headers={"Authorization": "Bearer YOUR_GATEWAY_KEY"},
+    json={"model": "gpt-4o", "messages": [{"role": "user", "content": "hello"}]}
+)
+print(resp.json())</pre>
+
+    <h2 style="margin-top:24px">Webhook Notifications</h2>
+    <p style="font-size:14px;color:#94a3b8">Set <code style="color:#fde68a">WEBHOOK_URL</code> in your Cloudflare Worker environment variables (e.g. Slack webhook URL). The gateway will POST JSON alerts for auth failures and circuit-breaker state changes.</p>
+    <pre style="font-size:13px">Example payload:
+POST &lt;WEBHOOK_URL&gt;
+{"event":"auth_failure","provider":"openai","keyId":"sk-...","status":401}</pre>
+
+    <h2 style="margin-top:24px">ADMIN_PASSWORD (Environment Variable)</h2>
+    <p style="font-size:14px;color:#94a3b8">Set <code style="color:#fde68a">ADMIN_PASSWORD</code> in your Cloudflare Worker env vars to override the default admin password (<code>2200</code>).</p>
+
+    <h2 style="margin-top:24px">Supported Models</h2>
+    <p style="font-size:14px;color:#94a3b8">Free-tier models: <b>Groq</b> (llama-3.3-70b-versatile), <b>Google</b> (gemini-2.0-flash), <b>Mistral</b> (mistral-small-latest), <b>OpenRouter</b> (free models).</p>
+    <p style="font-size:14px;color:#94a3b8">First add your provider API keys in the <b>API Keys</b> tab, then generate a Gateway Key in the <b>Gateway Keys</b> tab.</p>
+  `);
+}
+</script>
+</body>
+</html>
