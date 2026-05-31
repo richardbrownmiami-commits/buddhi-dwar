@@ -64,6 +64,8 @@ pre{background:rgba(15,23,42,.6);padding:18px;border-radius:12px;overflow:auto;f
 summary{color:#38bdf8;font-weight:600;cursor:pointer;padding:8px 0;font-size:14px}
 details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:1px solid rgba(56,189,248,.06);margin-bottom:16px}
 .page-desc{background:rgba(56,189,248,.06);border-left:3px solid #38bdf8;padding:12px 16px;border-radius:0 10px 10px 0;margin-bottom:20px;font-size:13px;color:#94a3b8;line-height:1.6}
+.key-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:14px}
+.key-card{background:linear-gradient(135deg,rgba(30,41,59,.6),rgba(30,41,59,.3));border-radius:14px;padding:16px;border:1px solid rgba(56,189,248,.08);transition:transform .2s,border-color .2s}.key-card:hover{transform:translateY(-2px);border-color:rgba(56,189,248,.2)}
 @media(max-width:768px){.sidebar{width:60px;padding:16px 0}.sidebar h1,.sidebar a span:last-child{display:none}.sidebar a{justify-content:center;padding:11px 0;margin:2px 6px}.main{padding:20px}.grid-2{grid-template-columns:1fr}}
 @media(max-width:480px){.sidebar{width:48px}.main{padding:16px}.cards{grid-template-columns:1fr 1fr}}
 </style>
@@ -81,6 +83,7 @@ details{background:rgba(15,23,42,.3);border-radius:12px;padding:8px 16px;border:
 <a onclick="showTab('usage')" id="nav-usage"><span class="ico ico-overview">&#128200;</span><span>Usage</span></a>
 <a onclick="showTab('health')" id="nav-health"><span class="ico ico-health">&#10003;</span><span>Health Check</span></a>
 <a onclick="showTab('setup')" id="nav-setup"><span class="ico ico-setup">&#8505;</span><span>Setup</span></a>
+<a onclick="logout()" style="margin-top:auto;color:#f87171"><span class="ico" style="background:rgba(248,113,113,.15);color:#f87171">&#8594;</span><span>Logout</span></a>
 </div>
 <div class="main" id="main-content"></div>
 <script>
@@ -93,12 +96,11 @@ function api(path, opts) {
   return fetch('/admin/api' + path, {
     headers: hdrs,
     credentials: 'same-origin', ...(opts || {})
-  }).then(r => { hideLoading(); if (r.status === 401) { showToast('Session expired, please login again', 'error'); throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
+  }).then(r => { hideLoading(); if (r.status === 401) { window.location.href = "/admin/api/logout"; throw new Error('unauthorized'); } return r.json(); }).catch(e => { hideLoading(); throw e; });
 }
 function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#x27;'); }
-async function copyKey(pname, id) {
-  try { const r = await api('/keys?full=1&pname=' + encodeURIComponent(pname) + '&id=' + encodeURIComponent(id)); if (r.apiKey) { await navigator.clipboard.writeText(r.apiKey); showToast('Key copied', 'success'); } else showToast('Failed to get key', 'error'); } catch { showToast('Failed to copy', 'error'); }
-}
+function cap(s) { return s.charAt(0).toUpperCase() + s.slice(1); }
+
 function showToast(msg, type) {
   const ico = type === 'success' ? '\u2713' : type === 'error' ? '\u2717' : '\u2139';
   const t = document.createElement('div'); t.className = 'toast ' + type;
@@ -106,7 +108,25 @@ function showToast(msg, type) {
   t.appendChild(document.createTextNode(msg));
   document.body.appendChild(t); setTimeout(() => t.remove(), 3500);
 }
+function logout() { window.location.href = "/admin/api/logout"; }
 
+const PROVIDER_URLS = {
+  groq: 'https://console.groq.com/keys', google: 'https://aistudio.google.com/apikey',
+  openrouter: 'https://openrouter.ai/keys', mistral: 'https://console.mistral.ai/api-keys',
+  deepseek: 'https://platform.deepseek.com/api_keys', together: 'https://api.together.ai/settings/api-keys',
+  cerebras: 'https://console.cerebras.ai/api-keys', alibaba: 'https://bailian.console.aliyun.com/',
+  ai21: 'https://studio.ai21.com/account/api-keys', huggingface: 'https://huggingface.co/settings/tokens',
+  nvidia: 'https://build.nvidia.com/nim', cohere: 'https://dashboard.cohere.com/api-keys'
+};
+const PROVIDER_COLORS = {
+  groq:'#f55036', google:'#4285f4', openrouter:'#10a37f', mistral:'#ff6d00',
+  deepseek:'#4f46e5', together:'#7c3aed', cerebras:'#06b6d4', alibaba:'#f97316',
+  ai21:'#8b5cf6', huggingface:'#eab308', nvidia:'#76b900', cohere:'#06d6a0'
+};
+function logo(pname) {
+  const c = PROVIDER_COLORS[pname] || '#38bdf8';
+  return '<span style="display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:6px;background:' + c + ';color:#fff;font-size:12px;font-weight:700;margin-right:8px;flex-shrink:0">' + pname[0].toUpperCase() + '</span>';
+}
 function showTab(name) {
   document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
   const nav = document.getElementById('nav-' + name); if (nav) nav.classList.add('active');
@@ -161,16 +181,22 @@ async function renderOverview() {
     </div>
     <h2 style="margin-top:8px">Provider Usage Today</h2>
     <div class="cards" id="usage-mini" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))">Loading...</div>
-    <h2 style="margin-top:8px">Daily Requests (7 days)</h2>
-    <pre>${esc(JSON.stringify(a, null, 2))}</pre>
+    <h2 style="margin-top:8px">Provider Breakdown (7 days)</h2>
+    <div class="cards" id="provider-breakdown" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">Loading...</div>
   `);
   try {
     const ur = await api('/key-usage');
     const ud = ur.providers || ur;
     const t = ur.totals || { requests: 0, successes: 0, failures: 0, promptTokens: 0, completionTokens: 0, cost: 0, keys: 0 };
+    let remReq = 0, remTok = 0;
+    for (const [pn, pd] of Object.entries(ud)) { for (const k of pd.keys) {
+      if (k.rateLimit) { remReq += parseInt(k.rateLimit['x-ratelimit-remaining-requests'] || k.rateLimit['x-ratelimit-remaining'] || 0); remTok += parseInt(k.rateLimit['x-ratelimit-remaining-tokens'] || 0); }
+    }}
     const el = document.getElementById('usage-mini');
     if (!el) return;
     let cards = '<div class="card" style="padding:12px 16px;background:linear-gradient(135deg,rgba(56,189,248,.08),rgba(99,102,241,.05))"><div style="font-size:16px;font-weight:700;color:#38bdf8">' + t.requests + '</div><div style="font-size:10px;color:#7488a8">Total Req</div></div>' +
+      '<div class="card" style="padding:12px 16px"><div style="font-size:16px;font-weight:700;color:#86efac">' + remReq + '</div><div style="font-size:10px;color:#7488a8">Remaining Req</div></div>' +
+      '<div class="card" style="padding:12px 16px"><div style="font-size:16px;font-weight:700;color:#93c5fd">' + remTok.toLocaleString() + '</div><div style="font-size:10px;color:#7488a8">Remaining Tok</div></div>' +
       '<div class="card" style="padding:12px 16px"><div style="font-size:16px;font-weight:700;color:#fde68a">$' + t.cost.toFixed(4) + '</div><div style="font-size:10px;color:#7488a8">Total Cost</div></div>';
     for (const [pn, pd] of Object.entries(ud)) {
       const lim = pd.limit || {}; const dReq = lim.dailyRequests || 999999;
@@ -183,78 +209,82 @@ async function renderOverview() {
     }
     el.innerHTML = cards || '<p style="color:#94a3b8">No data</p>';
   } catch {}
+  try {
+    const pb = document.getElementById('provider-breakdown');
+    if (!pb) return;
+    const prov = {};
+    if (Array.isArray(a)) { a.forEach(d => { if (!d.providerStats) return; for (const [pn, pd] of Object.entries(d.providerStats)) { if (!prov[pn]) prov[pn] = { r:0,s:0,f:0,tokP:0,tokC:0,c:0 }; prov[pn].r += pd.requests||0; prov[pn].s += pd.successes||0; prov[pn].f += pd.failures||0; prov[pn].tokP += pd.totalPromptTokens||0; prov[pn].tokC += pd.totalCompletionTokens||0; prov[pn].c += pd.totalCost||0; } }); }
+    let pc = '';
+    for (const [pn, pd] of Object.entries(prov)) {
+      const rate = pd.r > 0 ? (pd.s / pd.r * 100).toFixed(0) : '-';
+      pc += '<div class="card" style="padding:14px 16px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><span style="font-weight:600;font-size:13px">' + esc(pn) + '</span><span style="font-size:13px;color:#38bdf8;font-weight:700">' + pd.r + ' req</span></div>' +
+        '<div style="display:flex;gap:16px;font-size:11px;color:#7488a8;flex-wrap:wrap"><span>âœ“ <span style="color:#86efac">' + pd.s + '</span></span><span>âœ— <span style="color:#fca5a5">' + pd.f + '</span></span><span>rate <span style="color:#38bdf8">' + rate + '%</span></span>' +
+        '<span>tok <span style="color:#93c5fd">' + (pd.tokP + pd.tokC).toLocaleString() + '</span></span><span>cost <span style="color:#fde68a">$' + pd.c.toFixed(4) + '</span></span></div></div>';
+    }
+    pb.innerHTML = pc || '<p style="color:#94a3b8">No provider data</p>';
+  } catch {}
 }
 async function renderKeys() {
-  const [raw, health] = await Promise.all([api('/keys'), api('/keys-health')]);
-  const hMap = {};
-  for (const [prov, items] of Object.entries(health || {})) { hMap[prov] = {}; for (const it of items) hMap[prov][it.id] = it; }
-  let rows = '';
-  for (const [pname, keys] of Object.entries(raw)) {
-    for (const k of keys) {
-      const ms = (k.models||[]).slice(0,3).join(', ');
-      const masked = (k.apiKey||'').includes('****') ? k.apiKey : '****';
-      const hi = hMap[pname]?.[k.id];
-      const st = hi?.status || 'unknown';
-      const cb = hi?.cbState || 'closed';
-      const cooling = hi?.cooling || false;
-      const err = hi?.lastError || '';
-      const stClass = st === 'active' ? 'ok' : st === 'dead' ? 'fail' : st === 'expired' ? 'warning' : 'warning';
-      const stLabel = st + (cb === 'open' ? ' 🔓' : cb === 'half-open' ? ' 🔄' : '') + (cooling ? ' ⏳' : '');
-      const errShort = err ? ' <span style="font-size:10px;color:#f87171">' + esc(err.slice(0, 60)) + '</span>' : '';
-      rows += '<tr><td>' + esc(pname) + '</td><td style="font-size:11px;color:#94a3b8">' + esc(k.label||'') + '</td>' +
-        '<td><code style="font-size:11px;color:#94a3b8;user-select:none">' + masked + '</code></td>' +
-        '<td><span class="tag ' + stClass + '" id="st-' + esc(k.id) + '" style="cursor:help" title="CB: ' + cb + (cooling ? ' | cooling 60s' : '') + (err ? ' | ' + esc(err) : '') + '">' + stLabel + '</span></td>' +
-        '<td style="font-size:12px;color:#8b949e;max-width:180px;overflow:hidden;text-overflow:ellipsis">' + esc(ms || '—') + '</td>' +
-        '<td style="font-size:12px;color:#94a3b8">' + (k.addedAt ? new Date(k.addedAt).toLocaleDateString() : '—') + '</td>' +
-'<td><button class="primary" onclick="copyKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Copy</button> ' +
-'<button class="secondary" onclick="testKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Test</button> ' +
-'<button class="secondary" onclick="reDetectKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Models</button> ' +
-'<button class="danger" onclick="deleteKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="padding:4px 8px;font-size:11px">Del</button></td></tr>';
+  const raw = await api('/keys');
+  const health = await api('/keys-health');
+  let cards = '';
+  for (const pname of Object.keys(PROVIDER_URLS)) {
+    const keys = raw[pname] || [];
+    const url = PROVIDER_URLS[pname];
+    const phealth = health[pname] || {};
+    const hasKeys = keys.length > 0;
+    let keyRows = '';
+    if (hasKeys) {
+      for (const k of keys) {
+        const masked = (k.apiKey||'').includes('****') ? k.apiKey : '****';
+        const h = phealth[k.id] || {};
+        const isWorking = h.cbState === 'closed' || !h.cbState;
+        const badge = isWorking ? '<span class="tag ok">Working</span>' : '<span class="tag fail">Alert</span>';
+        keyRows += '<div style="display:flex;align-items:center;gap:6px;padding:6px 0;border-bottom:1px solid rgba(71,85,105,.2)">' +
+          '<code id="kc-' + k.id + '" style="font-size:11px;color:#7488a8;flex:1;background:rgba(15,23,42,.4);padding:4px 8px;border-radius:4px">' + masked + '</code>' + badge +
+          '<a href="javascript:void(0)" onclick="getKey(\'' + esc(pname) + '\',\'' + esc(k.id) + '\')" style="color:#38bdf8;font-size:12px;text-decoration:none">Show</a></div>';
+      }
+    } else {
+      keyRows = '<p style="color:#7688a8;font-size:13px;text-align:center;padding:16px 0">No keys saved</p>';
     }
+    const btnLabel = hasKeys ? 'Add more Key' : 'Add Key';
+    cards += '<div class="key-card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">' +
+      '<span style="display:flex;align-items:center"><a href="' + url + '" target="_blank" style="color:#38bdf8;font-weight:700;font-size:16px;text-decoration:none">' + logo(pname) + cap(pname) + '</a></span>' +
+      '<a href="' + url + '" target="_blank" style="color:#7488a8;font-size:12px;text-decoration:none">Get Key &#8599;</a></div>' +
+      keyRows +
+      '<div style="display:flex;gap:8px;margin-top:10px">' +
+      '<input id="kpin-' + esc(pname) + '" placeholder="sk-..." style="flex:1;font-size:12px;padding:8px 10px">' +
+      '<button class="primary" onclick="saveKey(\'' + esc(pname) + '\')" style="padding:8px 14px;font-size:12px;white-space:nowrap">' + btnLabel + '</button></div></div>';
   }
-  setContent(`
-    <h2>API Keys</h2>
-    <div class="page-desc">Manage provider API keys for Groq, Google Gemini, Mistral, OpenRouter, DeepSeek, and Together AI. Each key shows live health status (active/dead/expired/warming), circuit-breaker state (closed/open/half-open), and rate-limit cooldown. Click Test to probe the key, or Models to re-detect available models. Circuit breaker opens after 5 consecutive failures; rate-limit (429) triggers a 1-minute cooldown.</div>
-    <div class="form-row">
-      <div class="form-group"><label>Provider</label><select id="kp-provider"><option>groq</option><option>google</option><option>mistral</option><option>openrouter</option><option>deepseek</option><option>together</option></select></div>
-      <div class="form-group"><label>API Key</label><input id="kp-key" placeholder="sk-..."></div>
-      <div class="form-group"><label>Label</label><input id="kp-label" placeholder="my-key"></div>
-      <button class="primary" onclick="addKey()">Add Key</button>
-    </div>
-    <details style="margin-bottom:16px;font-size:13px;color:#94a3b8;cursor:pointer">
-      <summary style="color:#38bdf8;font-size:14px;font-weight:600">Provider Key Links</summary>
-      <div style="margin-top:8px;display:flex;flex-direction:column;gap:6px">
-        <a href="https://console.groq.com/keys" target="_blank" style="color:#38bdf8">Groq console.groq.com</a>
-        <a href="https://aistudio.google.com/apikey" target="_blank" style="color:#38bdf8">Google aistudio.google.com</a>
-        <a href="https://console.mistral.ai/api-keys" target="_blank" style="color:#38bdf8">Mistral console.mistral.ai</a>
-        <a href="https://openrouter.ai/keys" target="_blank" style="color:#38bdf8">OpenRouter openrouter.ai</a>
-      </div>
-    </details>
-    <table><thead><tr><th>Provider</th><th>Label</th><th>Key</th><th>Status</th><th>Models</th><th>Added</th><th></th></tr></thead>
-    <tbody>' + rows + '</tbody></table>
-  `);
+  setContent('<h2>API Keys</h2><div class="page-desc">Manage provider API keys. Provider names link to their key-generation pages.</div><div class="key-grid">' + cards + '</div>');
 }
-async function testKey(pname, id) {
-  const el = document.getElementById('st-' + id);
-  if (el) el.innerHTML = 'testing...';
-  const h = await api('/test-key', { method: 'POST', body: JSON.stringify({ pname, id }) });
-  const st = h.ok ? 'ok' : 'fail';
-  if (el) { el.className = 'tag ' + st; el.innerHTML = st; }
+
+async function getKey(pname, id) {
+  try {
+    const r = await api('/keys?full=1&pname=' + encodeURIComponent(pname) + '&id=' + encodeURIComponent(id));
+    if (r.apiKey) {
+      const code = document.getElementById('kc-' + id);
+      if (code) { code.textContent = r.apiKey; code.style.userSelect = 'auto'; }
+    }
+  } catch {}
 }
-async function reDetectKey(pname, id) {
-  const r = await api('/redetect-models', { method: 'POST', body: JSON.stringify({ pname, id }) });
-  if (r.ok) { showToast('Models updated: ' + (r.models||[]).join(', '), 'success'); renderKeys(); }
-  else { showToast(r.error || 'Failed', 'error'); }
-}
-async function deleteKey(pname, id) { if (!confirm('Delete key?')) return; await api('/keys', { method: 'DELETE', body: JSON.stringify({ pname, id }) }); renderKeys(); }
-async function addKey() {
-  const pname = document.getElementById('kp-provider').value;
-  const apiKey = document.getElementById('kp-key').value;
-  const label = document.getElementById('kp-label').value || (pname + '_' + Date.now());
+async function saveKey(pname) {
+  const input = document.getElementById('kpin-' + pname);
+  const apiKey = input.value.trim();
   if (!apiKey) { showToast('Enter API key', 'error'); return; }
-  const r = await api('/keys', { method: 'POST', body: JSON.stringify({ pname, apiKey, label }) });
-  if (r.ok) { showToast('Key added successfully', 'success'); renderKeys(); }
-  else { showToast(r.error || 'Failed', 'error'); }
+  const label = pname + '_' + Date.now();
+  input.disabled = true;
+  try {
+    const r = await api('/keys', { method: 'POST', body: JSON.stringify({ pname, apiKey, label }) });
+    if (r.ok) {
+      await api('/test-key', { method: 'POST', body: JSON.stringify({ pname, id: r.id }) });
+      showToast('Key saved and tested', 'success');
+    } else {
+      showToast(r.error || 'Failed to save key', 'error');
+    }
+  } catch { showToast('Error saving key', 'error'); }
+  renderKeys();
 }
 async function renderGateway() {
   const g = await api('/gateway-keys');
@@ -303,7 +333,7 @@ async function renderStrategy() {
       '<p style="font-size:13px;color:#94a3b8">Strategy: <b style="color:#e2e8f0">' + esc(strat) + '</b></p></div>';
   }
   html += '</div><h2 style="margin-top:24px">Set Strategy</h2><div class="form-row">' +
-    '<div class="form-group"><label>Provider</label><select id="str-provider">' + ['groq','google','mistral','openrouter','deepseek','together'].map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
+    '<div class="form-group"><label>Provider</label><select id="str-provider">' + Object.keys(PROVIDER_URLS).map(p=>'<option>'+p+'</option>').join('') + '</select></div>' +
     '<div class="form-group"><label>Strategy</label><select id="str-strategy"><option>round-robin</option><option>lowest-latency</option><option>least-loaded</option></select></div>' +
     '<button class="primary" onclick="updateStr()">Set</button></div>' +
     '<h2>Raw</h2><pre>' + esc(JSON.stringify(s, null, 2)) + '</pre>';
@@ -318,7 +348,7 @@ async function updateStr() {
 async function renderAnalytics() {
   const a = await api('/analytics?days=30');
   if(!Array.isArray(a)||a.length===0){setContent('<p>No analytics data</p>');return}
-  let rows = a.map(d => '<tr><td>' + (d.date||'â€”') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
+  let rows = a.map(d => '<tr><td>' + (d.date||'Ã¢â‚¬â€') + '</td><td>' + (d.requests||0) + '</td><td>' + (d.failures||0) + '</td>' +
     '<td>' + (d.successes||0) + '</td><td>' + ((d.totalPromptTokens||0).toLocaleString()) + '</td>' +
     '<td>' + ((d.totalCompletionTokens||0).toLocaleString()) + '</td><td>$' + ((d.totalCost||0).toFixed(4)) + '</td></tr>').join('');
   let totalReq=0,totalFail=0,totalCost=0,totalPrompt=0,totalComp=0;
@@ -352,9 +382,6 @@ async function renderUsage() {
     '<div class="card"><div class="num">' + totals.keys + '</div><div class="lbl">Active Keys</div></div>' +
     '</div><div class="cards" style="grid-template-columns:repeat(auto-fit,minmax(280px,1fr))">';
   for (const [pname, pdata] of Object.entries(data)) {
-    const lim = pdata.limit || {};
-    const dReq = lim.dailyRequests || 999999;
-    const dTok = lim.dailyTokens || 999999999;
     let totReq = 0, totTok = 0, totCost = 0;
     let rlHtml = '';
     for (const k of pdata.keys) { 
@@ -367,15 +394,9 @@ async function renderUsage() {
         rlHtml += '<p style="font-size:11px;color:#86efac;margin-top:4px">Rate limit: ' + rrem + '/' + rlim + ' req, ' + trem + '/' + tlim + ' tok</p>';
       }
     }
-    const reqPct = Math.min(100, Math.round(totReq / dReq * 100));
-    const tokPct = Math.min(100, Math.round(totTok / dTok * 100));
-    const reqColor = reqPct > 80 ? '#f87171' : reqPct > 50 ? '#fbbf24' : '#38bdf8';
-    const tokColor = tokPct > 80 ? '#f87171' : tokPct > 50 ? '#fbbf24' : '#38bdf8';
     html += '<div class="card" style="margin-bottom:16px"><h3 style="color:#38bdf8;margin-bottom:12px">' + esc(pname) + '</h3>' +
-      '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px"><span>Requests</span><span>' + totReq + ' / ' + dReq + '</span></div>' +
-      '<div style="height:8px;background:rgba(71,85,105,.4);border-radius:4px;overflow:hidden"><div style="width:' + reqPct + '%;height:100%;background:' + reqColor + ';border-radius:4px;transition:width .3s"></div></div></div>' +
-      '<div style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12px;color:#94a3b8;margin-bottom:4px"><span>Tokens</span><span>' + totTok.toLocaleString() + ' / ' + dTok.toLocaleString() + '</span></div>' +
-      '<div style="height:8px;background:rgba(71,85,105,.4);border-radius:4px;overflow:hidden"><div style="width:' + tokPct + '%;height:100%;background:' + tokColor + ';border-radius:4px;transition:width .3s"></div></div></div>' +
+      '<p style="font-size:13px;color:#e2e8f0;margin-bottom:4px">Requests: ' + totReq + '</p>' +
+      '<p style="font-size:13px;color:#93c5fd;margin-bottom:4px">Tokens: ' + totTok.toLocaleString() + '</p>' +
       (totCost > 0 ? '<p style="font-size:12px;color:#fde68a">Cost: $' + totCost.toFixed(6) + '</p>' : '') +
       rlHtml +
       '<p style="font-size:11px;color:#7488a8">' + pdata.keys.length + ' key(s)</p></div>';
@@ -391,9 +412,9 @@ async function renderHealth() {
   let cards = '';
   for(const item of h) {
     const ok = item.status === 'ok' ? 'ok' : 'fail';
-    cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px">' + esc(item.provider||'') + ' / ' + esc((item.keyId||'').slice(0,8)) + '</h3>' +
+    cards += '<div class="card"><h3 style="color:#38bdf8;margin-bottom:6px;display:flex;align-items:center">' + logo(item.provider) + cap(item.provider) + ' - ' + esc(item.model||'') + '</h3>' +
       '<p><span class="tag ' + ok + '">' + esc(item.status||'?') + '</span></p>' +
-      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'â€”') + ' | CB: ' + esc(item.cbState||'â€”') + '</p>' +
+      '<p style="font-size:13px;color:#94a3b8">HTTP: ' + (item.httpStatus||'Ã¢â‚¬â€') + ' | CB: ' + esc(item.cbState||'Ã¢â‚¬â€') + '</p>' +
       (item.error ? '<pre style="font-size:11px;margin-top:4px">' + esc(item.error) + '</pre>' : '') + '</div>';
   }
   setContent('<h2>Health Check</h2><div class="page-desc">Probe each provider key to verify connectivity and authentication. Shows HTTP status, circuit-breaker state, and any error messages returned by the upstream API.</div><div class="cards">' + (cards || '<p>No results</p>') + '</div>');
@@ -444,7 +465,18 @@ POST &lt;WEBHOOK_URL&gt;
     <h2 style="margin-top:24px">Supported Models</h2>
     <p style="font-size:14px;color:#94a3b8">Free-tier models: <b>Groq</b> (llama-3.3-70b-versatile), <b>Google</b> (gemini-2.0-flash), <b>Mistral</b> (mistral-small-latest), <b>OpenRouter</b> (free models).</p>
     <p style="font-size:14px;color:#94a3b8">First add your provider API keys in the <b>API Keys</b> tab, then generate a Gateway Key in the <b>Gateway Keys</b> tab.</p>
+
+    <h2 style="margin-top:24px;color:#ef4444">Danger Zone</h2>
+    <p style="font-size:14px;color:#94a3b8">Wipes all KV data: keys, health, analytics, gateway keys, usage stats. Irreversible.</p>
+    <button class="danger" onclick="resetAll()" style="margin-top:8px">Reset All Data</button>
   `);
+}
+async function resetAll() {
+  if (!confirm('Delete ALL data? This removes keys, health, analytics, and gateway keys.')) return;
+  if (!confirm('ARE YOU SURE? This cannot be undone.')) return;
+  const r = await api('/reset', { method: 'POST' });
+  if (r.ok) showToast('All data wiped (' + r.deleted + ' keys deleted)', 'success');
+  else showToast('Reset failed', 'error');
 }
 </script>
 </body>
