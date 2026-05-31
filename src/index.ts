@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+﻿import { Hono } from 'hono';
 const DAY_MS = 86400000;
 const EVICT_DAYS = 5;
 let _BF: KVNamespace;
@@ -166,6 +166,12 @@ const PROVIDERS = [
   { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-small-latest"] },
   { name: "deepseek", baseUrl: "https://api.deepseek.com/v1", type: "openai", models: ["deepseek-chat", "deepseek-reasoner"] },
   { name: "together", baseUrl: "https://api.together.xyz/v1", type: "openai", models: ["meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"] },
+  { name: "cerebras", baseUrl: "https://api.cerebras.ai/v1", type: "openai", models: ["llama3.1-8b", "llama-3.3-70b"] },
+  { name: "alibaba", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", type: "openai", models: ["qwen-turbo", "qwen-plus"] },
+  { name: "ai21", baseUrl: "https://api.ai21.com/studio/v1", type: "openai", models: ["jamba-1.5-mini", "jamba-1.5-large"] },
+  { name: "huggingface", baseUrl: "https://api-inference.huggingface.co/v1", type: "openai", models: ["HuggingFaceH4/zephyr-7b-beta", "microsoft/Phi-3.5-mini-instruct"] },
+  { name: "nvidia", baseUrl: "https://api.nvcf.nvidia.com/v1", type: "openai", models: ["meta/llama-3.1-8b-instruct"] },
+  { name: "cohere", baseUrl: "https://api.cohere.ai/v1", type: "openai", models: ["command-r-plus", "command-r"] },
 ];
 
 async function getCustomProviders(): Promise<ProviderConfig[]> {
@@ -841,6 +847,20 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     }
   }
 
+  if (path === "/admin/api/keys-health") {
+    const result: any = {};
+    for (const p of await getAllProviders()) {
+      result[p.name] = {};
+      const keys = await getKeys(p.name);
+      for (const k of keys) {
+        const h = await getHealth(p.name, k.id);
+        const cooling = await isKeyCooling(p.name, k.id);
+        result[p.name][k.id] = { status: h.status, cbState: h.cbState, cooling, lastError: h.lastError, lastUsed: h.lastUsed };
+      }
+    }
+    return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
+  }
+
   return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
 }
 
@@ -896,6 +916,10 @@ app.post("/admin/api/login", async (c) => {
   await recordLoginAttempt(ip);
   const redirect = new URL(c.req.raw.url).searchParams.get("redirect") || "/admin";
   return new Response("", { status: 302, headers: { Location: redirect + "?error=1", "Cache-Control": "no-cache" } });
+});
+
+app.get("/admin/api/logout", async (c) => {
+  return new Response("", { status: 302, headers: { "Set-Cookie": "bfadmin=; max-age=0; path=/", Location: "/admin", "Cache-Control": "no-cache" } });
 });
 
 app.get("/admin", async (c) => {
