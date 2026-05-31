@@ -1,4 +1,4 @@
-﻿import { Hono } from 'hono';
+import { Hono } from 'hono';
 const DAY_MS = 86400000;
 const EVICT_DAYS = 5;
 let _BF: KVNamespace;
@@ -166,12 +166,6 @@ const PROVIDERS = [
   { name: "mistral", baseUrl: "https://api.mistral.ai", type: "openai", models: ["mistral-small-latest"] },
   { name: "deepseek", baseUrl: "https://api.deepseek.com/v1", type: "openai", models: ["deepseek-chat", "deepseek-reasoner"] },
   { name: "together", baseUrl: "https://api.together.xyz/v1", type: "openai", models: ["meta-llama/Llama-3.3-70B-Instruct-Turbo-Free"] },
-  { name: "cerebras", baseUrl: "https://api.cerebras.ai/v1", type: "openai", models: ["llama3.1-8b", "llama-3.3-70b"] },
-  { name: "alibaba", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", type: "openai", models: ["qwen-turbo", "qwen-plus"] },
-  { name: "ai21", baseUrl: "https://api.ai21.com/studio/v1", type: "openai", models: ["jamba-1.5-mini", "jamba-1.5-large"] },
-  { name: "huggingface", baseUrl: "https://api-inference.huggingface.co/v1", type: "openai", models: ["HuggingFaceH4/zephyr-7b-beta", "microsoft/Phi-3.5-mini-instruct"] },
-  { name: "nvidia", baseUrl: "https://api.nvcf.nvidia.com/v1", type: "openai", models: ["meta/llama-3.1-8b-instruct"] },
-  { name: "cohere", baseUrl: "https://api.cohere.ai/v1", type: "openai", models: ["command-r-plus", "command-r"] },
 ];
 
 async function getCustomProviders(): Promise<ProviderConfig[]> {
@@ -459,68 +453,6 @@ async function handleProxy(req: Request): Promise<Response> {
   }
 }
 
-async function handleImageGen(req: Request): Promise<Response> {
-  const start = Date.now();
-  try {
-    const key = getBearer(req);
-    if (!key) return new Response(JSON.stringify({ error: "missing auth" }), { status: 401, headers: { "content-type": "application/json" } });
-    if (key !== __MASTER_KEY) {
-      const gw = await getGwKey(key);
-      if (!gw || !gw.enabled) return new Response(JSON.stringify({ error: "invalid gateway key" }), { status: 403, headers: { "content-type": "application/json" } });
-    }
-    const rl = await checkRateLimit(key, key !== __MASTER_KEY ? await getRateLimit(key) : await getRateLimit());
-    if (!rl.allowed) return new Response(JSON.stringify({ error: "rate limit exceeded" }), { status: 429, headers: { "content-type": "application/json" } });
-    const body = await req.json() as any;
-    const model = body.model || "";
-    if (!model) return new Response(JSON.stringify({ error: "model required" }), { status: 400, headers: { "content-type": "application/json" } });
-    const provs = (await getAllProviders()).filter((p: any) => p.type !== "google" && p.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase())));
-    for (const p of provs) {
-      const keys = await getKeys(p.name);
-      if (!keys.length) continue;
-      const selected = await selectKey(p.name, keys, await getStrategy(p.name));
-      if (!selected) continue;
-      const ke = selected.key;
-      const resp = await fetch(p.baseUrl + "/v1/images/generations", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ke.apiKey }, body: JSON.stringify({ ...body, model }) });
-      if (resp.ok) return new Response(resp.body, { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
-      if (resp.status === 429) await setKeyCooling(p.name, ke.id);
-    }
-    return new Response(JSON.stringify({ error: "no provider available for image model: " + model }), { status: 502, headers: { "content-type": "application/json" } });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: "image gen error: " + e.message }), { status: 500, headers: { "content-type": "application/json" } });
-  }
-}
-
-async function handleVideoGen(req: Request): Promise<Response> {
-  const start = Date.now();
-  try {
-    const key = getBearer(req);
-    if (!key) return new Response(JSON.stringify({ error: "missing auth" }), { status: 401, headers: { "content-type": "application/json" } });
-    if (key !== __MASTER_KEY) {
-      const gw = await getGwKey(key);
-      if (!gw || !gw.enabled) return new Response(JSON.stringify({ error: "invalid gateway key" }), { status: 403, headers: { "content-type": "application/json" } });
-    }
-    const rl = await checkRateLimit(key, key !== __MASTER_KEY ? await getRateLimit(key) : await getRateLimit());
-    if (!rl.allowed) return new Response(JSON.stringify({ error: "rate limit exceeded" }), { status: 429, headers: { "content-type": "application/json" } });
-    const body = await req.json() as any;
-    const model = body.model || "";
-    if (!model) return new Response(JSON.stringify({ error: "model required" }), { status: 400, headers: { "content-type": "application/json" } });
-    const provs = (await getAllProviders()).filter((p: any) => p.type !== "google" && p.models.some((m: string) => model.toLowerCase().includes(m.toLowerCase())));
-    for (const p of provs) {
-      const keys = await getKeys(p.name);
-      if (!keys.length) continue;
-      const selected = await selectKey(p.name, keys, await getStrategy(p.name));
-      if (!selected) continue;
-      const ke = selected.key;
-      const resp = await fetch(p.baseUrl + "/v1/video/generations", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ke.apiKey }, body: JSON.stringify({ ...body, model }) });
-      if (resp.ok) return new Response(resp.body, { headers: { "content-type": "application/json", "access-control-allow-origin": "*" } });
-      if (resp.status === 429) await setKeyCooling(p.name, ke.id);
-    }
-    return new Response(JSON.stringify({ error: "no provider available for video model: " + model }), { status: 502, headers: { "content-type": "application/json" } });
-  } catch (e: any) {
-    return new Response(JSON.stringify({ error: "video gen error: " + e.message }), { status: 500, headers: { "content-type": "application/json" } });
-  }
-}
-
 async function handleModels(): Promise<Response> {
   const all: any[] = [];
   for (const p of await getAllProviders()) {
@@ -550,8 +482,7 @@ async function handleEmbeddings(req: Request): Promise<Response> {
       const selected = await selectKey(p.name, keys, await getStrategy(p.name));
       if (!selected) continue;
       const ke = selected.key;
-      const embedPath = p.name === "cohere" ? "/v1/embed" : "/v1/embeddings";
-      const resp = await fetch(p.baseUrl + embedPath, { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ke.apiKey }, body: JSON.stringify({ ...body, model }) });
+      const resp = await fetch(p.baseUrl + "/v1/embeddings", { method: "POST", headers: { "Content-Type": "application/json", "Authorization": "Bearer " + ke.apiKey }, body: JSON.stringify({ ...body, model }) });
       const rl: ReqLog = { model, provider: p.name, keyId: ke.id, status: resp.status, latencyMs: Date.now() - start, timestamp: Date.now(), promptTokens: 0, completionTokens: 0, cost: 0 };
       await updateAnalytics(rl); await trackKeyUsage(rl); await saveRateLimit(p.name, ke.id, resp);
       if (resp.status === 429) await setKeyCooling(p.name, ke.id);
@@ -910,20 +841,6 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     }
   }
 
-  if (path === "/admin/api/keys-health") {
-    const result: any = {};
-    for (const p of await getAllProviders()) {
-      result[p.name] = {};
-      const keys = await getKeys(p.name);
-      for (const k of keys) {
-        const h = await getHealth(p.name, k.id);
-        const cooling = await isKeyCooling(p.name, k.id);
-        result[p.name][k.id] = { status: h.status, cbState: h.cbState, cooling, lastError: h.lastError, lastUsed: h.lastUsed };
-      }
-    }
-    return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
-  }
-
   return new Response(JSON.stringify({ error: "not found" }), { status: 404, headers: { "content-type": "application/json" } });
 }
 
@@ -961,8 +878,6 @@ app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req.raw));
 app.post("/v1/messages", async (c) => handleAnthropic(c.req.raw));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
-app.post("/v1/images/generations", async (c) => handleImageGen(c.req.raw));
-app.post("/v1/video/generations", async (c) => handleVideoGen(c.req.raw));
 
 app.post("/admin/api/login", async (c) => {
   const ip = c.req.raw.headers.get("CF-Connecting-IP") || "unknown";
@@ -981,10 +896,6 @@ app.post("/admin/api/login", async (c) => {
   await recordLoginAttempt(ip);
   const redirect = new URL(c.req.raw.url).searchParams.get("redirect") || "/admin";
   return new Response("", { status: 302, headers: { Location: redirect + "?error=1", "Cache-Control": "no-cache" } });
-});
-
-app.get("/admin/api/logout", async (c) => {
-  return new Response("", { status: 302, headers: { "Set-Cookie": "bfadmin=; max-age=0; path=/", Location: "/admin", "Cache-Control": "no-cache" } });
 });
 
 app.get("/admin", async (c) => {
