@@ -435,7 +435,7 @@ Authorization: Bearer &lt;your-gateway-key&gt;</pre>
   -H "Authorization: Bearer YOUR_GATEWAY_KEY" \\
   -H "Content-Type: application/json" \\
    -d '{"model":"llama-3.3-70b-versatile","messages":[{"role":"user","content":"hello"}]}'</pre>
-    <p style="font-size:12px;color:#7488a8;margin-top:4px">Model name must match a provider that has API keys configured. The gateway routes by model name.</p>
+    <p style="font-size:12px;color:#fde68a;margin-top:4px">Any model name works: <code>llama-3.3-70b-versatile</code> â†’ Groq, <code>gemini-2.0-flash</code> â†’ Google, <code>mistral-small-latest</code> â†’ Mistral. The gateway routes the model name to the configured provider.</p>
 
     <h2 style="margin-top:24px">Example: JavaScript (fetch)</h2>
     <pre style="font-size:13px">const resp = await fetch("https://buddhi-dwar.your-domain.workers.dev/v1/chat/completions", {
@@ -464,7 +464,7 @@ POST &lt;WEBHOOK_URL&gt;
     <p style="font-size:14px;color:#94a3b8">Set <code style="color:#fde68a">ADMIN_PASSWORD</code> in your Cloudflare Worker env vars to override the default admin password (<code>itsgood</code>).</p>
 
     <h2 style="margin-top:24px">Supported Models</h2>
-    <p style="font-size:14px;color:#94a3b8">Free-tier models: <b>Groq</b> (llama-3.3-70b-versatile), <b>Google</b> (gemini-2.0-flash), <b>Mistral</b> (mistral-small-latest), <b>OpenRouter</b> (free models).</p>
+    <p style="font-size:14px;color:#94a3b8">Free-tier models: <b>Groq</b> (llama-3.3-70b-versatile), <b>Google</b> (gemini-2.0-flash), <b>Mistral</b> (mistral-small-latest), <b>OpenRouter</b> (free models). Use <b>any model name</b> the provider supports â€” the gateway routes by model name to whichever provider has the matching key.</p>
     <p style="font-size:14px;color:#94a3b8">First add your provider API keys in the <b>API Keys</b> tab, then generate a Gateway Key in the <b>Gateway Keys</b> tab.</p>
 
     <h2 style="margin-top:24px;color:#ef4444">Danger Zone</h2>
