@@ -13,3 +13,4 @@ crons = ['0 */6 * * *']
 [vars]
 WEBHOOK_URL = ''
 ADMIN_PASSWORD = ''
+MASTER_KEY = ''
