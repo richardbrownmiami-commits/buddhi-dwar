@@ -4,7 +4,7 @@ const EVICT_DAYS = 5;
 let _BF: KVNamespace;
 let _WEBHOOK_URL = "";
 let __MASTER_KEY = "bf-master-kun-2026";
-let _ADMIN_PW = "itsgood";
+let _ADMIN_PW = "Daredavil";
 
 interface KeyEntry { id: string; apiKey: string; label: string; addedAt: number; models?: string[]; }
 type CBState = "closed" | "open" | "half-open";
@@ -1013,11 +1013,11 @@ app.all("/admin/api/*", async (c) => handleAdminApi(c.req.raw, new URL(c.req.raw
 
 export default {
   async fetch(req: Request, env: Env, ctx: ExecutionContext) {
-    _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "itsgood"; __MASTER_KEY = env.MASTER_KEY || "bf-master-kun-2026";
+    _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; __MASTER_KEY = env.MASTER_KEY || "bf-master-kun-2026";
     return app.fetch(req, env, ctx);
   },
   async scheduled(_event: ScheduledEvent, env: Env, _ctx: ExecutionContext) {
-    _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; _ADMIN_PW = env.ADMIN_PASSWORD || "itsgood"; __MASTER_KEY = env.MASTER_KEY || "bf-master-kun-2026";
+    _BF = env.BF; _WEBHOOK_URL = env.WEBHOOK_URL || ""; __MASTER_KEY = env.MASTER_KEY || "bf-master-kun-2026";
     await handleCron();
   },
 };
