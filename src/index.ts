@@ -443,7 +443,7 @@ async function handleProxy(req: Request): Promise<Response> {
             }
             const txt = await resp.text();
             h.failCount++; h.lastError = tryModel + " " + resp.status + ": " + txt.slice(0, 200); h.lastCheck = Date.now();
-            if (resp.status === 401 || resp.status === 403) { h.consecutiveFailDays++; } else { h.consecutiveFailures++; }
+            if (resp.status === 401 || resp.status === 403) { h.consecutiveFailDays++; } else if (resp.status !== 413) { h.consecutiveFailures++; }
             if (h.consecutiveFailures >= 5) h.cbState = "open";
             await setHealth(p.name, ke.id, h);
             lastErrors.push(p.name + ":" + tryModel + ":" + resp.status);
@@ -451,7 +451,7 @@ async function handleProxy(req: Request): Promise<Response> {
             if (resp.status === 401 || resp.status === 403) {
               await sendWebhook("auth_failure", { provider: p.name, keyId: ke.id, status: resp.status });
             }
-            if (resp.status === 401 || resp.status === 403 || resp.status >= 500) break;
+            if (resp.status === 401 || resp.status === 403 || resp.status >= 500 || resp.status === 413) break;
           } catch (e: any) {
             const latency = Date.now() - start;
             const promptText = JSON.stringify(body.messages || "");
