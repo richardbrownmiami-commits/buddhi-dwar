@@ -944,6 +944,13 @@ async function handleAdminApi(req: Request, path: string): Promise<Response> {
     return new Response(JSON.stringify(result), { headers: { "content-type": "application/json" } });
   }
 
+  if (path === "/admin/api/keys-health/reset" && req.method === "POST") {
+    const { pname, id } = await req.json() as any;
+    if (!pname || !id) return new Response(JSON.stringify({ error: "pname and id required" }), { status: 400, headers: { "content-type": "application/json" } });
+    await _BF.delete("prov:" + pname + ":health:" + id);
+    return new Response(JSON.stringify({ ok: true }), { headers: { "content-type": "application/json" } });
+  }
+
   if (path === "/admin/api/reset" && req.method === "POST") {
     const list = await _BF.list({ prefix: "", limit: 1000 });
     let count = 0;
