@@ -974,13 +974,17 @@ app.post("/diag", async (c) => {
   return new Response(JSON.stringify(results), { status: 200, headers: { "content-type": "application/json" } });
 });
 
-app.post("/v1/chat/completions", async (c) => {
-  let r: Request; try { const b = await c.req.json(); r = new Request(c.req.raw.url, { method: "POST", headers: c.req.raw.headers, body: JSON.stringify(b) }); } catch { r = c.req.raw; }
-  return handleProxy(r);
-});
-app.post("/chat/completions", async (c) => handleProxy(c.req.raw));
-app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req.raw));
-app.post("/v1/messages", async (c) => handleAnthropic(c.req.raw));
+async function bodyReq(c: any): Promise<Request> {
+  try {
+    const body = await c.req.text();
+    const u = new URL(c.req.raw.url);
+    return new Request(u, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+  } catch { return c.req.raw; }
+}
+app.post("/v1/chat/completions", async (c) => handleProxy(await bodyReq(c)));
+app.post("/chat/completions", async (c) => handleProxy(await bodyReq(c)));
+app.post("/v1/embeddings", async (c) => handleEmbeddings(await bodyReq(c)));
+app.post("/v1/messages", async (c) => handleAnthropic(await bodyReq(c)));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 app.post("/v1/images/generations", async (c) => handleImageGen(c.req.raw));
