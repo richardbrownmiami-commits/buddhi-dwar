@@ -966,32 +966,10 @@ const ADMIN_PAGE = atob(ADMIN_PAGE_B64);
 /* ── Hono App ── */
 const app = new Hono();
 
-app.post("/diag", async (c) => {
-  const results: any = {};
-  try { const t = await c.req.text(); results.textOk = true; results.text = t.slice(0, 50); } catch (e: any) { results.textError = e.message; }
-  try { const b = await c.req.json(); results.jsonOk = true; } catch (e: any) { results.jsonError = e.message; }
-  try { const b = await c.req.raw.json(); results.rawOk = true; } catch (e: any) { results.rawError = e.message; }
-  const c2 = new Request(c.req.raw.url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "test", messages: [{ role: "user", content: "hi" }] }) });
-  try { const b = await c2.json(); results.cloneOk = true; } catch (e: any) { results.cloneError = e.message; }
-  const auth = c.req.raw.headers.get("Authorization"); results.hasAuth = !!auth;
-  return new Response(JSON.stringify(results), { status: 200, headers: { "content-type": "application/json" } });
-});
-
-async function bodyReq(c: any): Promise<Request> {
-  try {
-    const body = await c.req.text();
-    const orig = c.req.raw;
-    const hdrs: any = { "Content-Type": "application/json" };
-    const auth = orig.headers.get("Authorization"); if (auth) hdrs["Authorization"] = auth;
-    const xak = orig.headers.get("x-api-key"); if (xak) hdrs["x-api-key"] = xak;
-    const xgk = orig.headers.get("x-goog-api-key"); if (xgk) hdrs["x-goog-api-key"] = xgk;
-    return new Request(orig.url, { method: "POST", headers: hdrs, body });
-  } catch { return c.req.raw; }
-}
-app.post("/v1/chat/completions", async (c) => handleProxy(await bodyReq(c)));
-app.post("/chat/completions", async (c) => handleProxy(await bodyReq(c)));
-app.post("/v1/embeddings", async (c) => handleEmbeddings(await bodyReq(c)));
-app.post("/v1/messages", async (c) => handleAnthropic(await bodyReq(c)));
+app.post("/v1/chat/completions", async (c) => handleProxy(c.req.raw));
+app.post("/chat/completions", async (c) => handleProxy(c.req.raw));
+app.post("/v1/embeddings", async (c) => handleEmbeddings(c.req.raw));
+app.post("/v1/messages", async (c) => handleAnthropic(c.req.raw));
 app.get("/v1/models", async (c) => handleModels());
 app.get("/models", async (c) => handleModels());
 app.post("/v1/images/generations", async (c) => handleImageGen(c.req.raw));
