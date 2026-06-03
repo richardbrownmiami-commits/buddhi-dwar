@@ -977,8 +977,12 @@ app.post("/diag", async (c) => {
 async function bodyReq(c: any): Promise<Request> {
   try {
     const body = await c.req.text();
-    const u = new URL(c.req.raw.url);
-    return new Request(u, { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    const orig = c.req.raw;
+    const hdrs: any = { "Content-Type": "application/json" };
+    const auth = orig.headers.get("Authorization"); if (auth) hdrs["Authorization"] = auth;
+    const xak = orig.headers.get("x-api-key"); if (xak) hdrs["x-api-key"] = xak;
+    const xgk = orig.headers.get("x-goog-api-key"); if (xgk) hdrs["x-goog-api-key"] = xgk;
+    return new Request(orig.url, { method: "POST", headers: hdrs, body });
   } catch { return c.req.raw; }
 }
 app.post("/v1/chat/completions", async (c) => handleProxy(await bodyReq(c)));
