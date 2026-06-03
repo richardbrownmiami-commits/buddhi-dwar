@@ -968,9 +968,12 @@ const app = new Hono();
 
 app.post("/diag", async (c) => {
   const results: any = {};
-  try { const b = await c.req.raw.json(); results.rawOk = true; results.body = b; } catch (e: any) { results.rawError = e.message; }
-  const c2 = new Request(c.req.raw.url, { method: "POST", headers: c.req.raw.headers, body: JSON.stringify({ model: "test", messages: [{ role: "user", content: "hi" }] }) });
-  try { const b = await c2.json(); results.cloneOk = true; results.cloneBody = b; } catch (e: any) { results.cloneError = e.message; }
+  try { const t = await c.req.text(); results.textOk = true; results.text = t.slice(0, 50); } catch (e: any) { results.textError = e.message; }
+  try { const b = await c.req.json(); results.jsonOk = true; } catch (e: any) { results.jsonError = e.message; }
+  try { const b = await c.req.raw.json(); results.rawOk = true; } catch (e: any) { results.rawError = e.message; }
+  const c2 = new Request(c.req.raw.url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: "test", messages: [{ role: "user", content: "hi" }] }) });
+  try { const b = await c2.json(); results.cloneOk = true; } catch (e: any) { results.cloneError = e.message; }
+  const auth = c.req.raw.headers.get("Authorization"); results.hasAuth = !!auth;
   return new Response(JSON.stringify(results), { status: 200, headers: { "content-type": "application/json" } });
 });
 
