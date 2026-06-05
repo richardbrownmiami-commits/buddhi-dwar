@@ -5,6 +5,7 @@ let _BF: KVNamespace;
 let _WEBHOOK_URL = "";
 let __MASTER_KEY = "bf-master-kun-2026";
 let _ADMIN_PW = "Daredavil";
+let _LAST_ANALYTICS_FLUSH = 0;
 
 interface KeyEntry { id: string; apiKey: string; label: string; addedAt: number; models?: string[]; }
 type CBState = "closed" | "open" | "half-open";
@@ -150,7 +151,8 @@ async function updateAnalytics(rl: ReqLog) {
   if (rl.status >= 200 && rl.status < 400) a.providerStats[rl.provider].successes++; else a.providerStats[rl.provider].failures++;
   a.providerStats[rl.provider].totalLatencyMs += rl.latencyMs;
   a.providerStats[rl.provider].totalPromptTokens += pt; a.providerStats[rl.provider].totalCompletionTokens += ct; a.providerStats[rl.provider].totalCost += c;
-  await _BF.put(key, JSON.stringify(a), { expirationTtl: 86400 * 30 });
+  const now = Date.now();
+  if (now - _LAST_ANALYTICS_FLUSH > 300000) { _LAST_ANALYTICS_FLUSH = now; await _BF.put(key, JSON.stringify(a), { expirationTtl: 86400 * 30 }); }
 }
 
 async function sendWebhook(event: string, data: any) {
