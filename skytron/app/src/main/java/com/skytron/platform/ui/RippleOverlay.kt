@@ -1,4 +1,5 @@
 package com.skytron.platform.ui
+import android.animation.Animator
 import android.animation.ValueAnimator
 import android.content.Context
 import android.graphics.Canvas
@@ -19,8 +20,13 @@ class RippleOverlay(context: Context) : View(context) {
             addUpdateListener { anim ->
                 r.progress = anim.animatedFraction
                 invalidate()
-                if (anim.animatedFraction >= 1f) ripples.remove(r)
             }
+            addListener(object : Animator.AnimatorListener {
+                override fun onAnimationStart(a: Animator) {}
+                override fun onAnimationEnd(a: Animator) { ripples.remove(r) }
+                override fun onAnimationCancel(a: Animator) { ripples.remove(r) }
+                override fun onAnimationRepeat(a: Animator) {}
+            })
             start()
         }
     }
