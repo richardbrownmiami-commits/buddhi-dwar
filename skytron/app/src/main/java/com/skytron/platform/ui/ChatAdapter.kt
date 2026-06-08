@@ -23,6 +23,6 @@ class ChatAdapter(private val items: MutableList<ChatMessage>) : RecyclerView.Ad
     override fun getItemCount() = items.size
     fun add(msg: ChatMessage) { items.add(msg); notifyItemInserted(items.size - 1) }
     class Holder(v: View) : RecyclerView.ViewHolder(v) {
-        val text: TextView = v.findViewById(android.R.id.text1)
+        val text: TextView = v.findViewById(R.id.textMessage)
     }
 }
