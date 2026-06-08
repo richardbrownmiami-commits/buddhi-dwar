@@ -1,0 +1,39 @@
+name: Android Build CI
+on:
+  push:
+    branches: [ main ]
+    paths:
+      - 'app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - 'gradle/**'
+      - '.github/workflows/**'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v3
+      - run: chmod +x gradlew
+      - name: Generate release keystore
+        run: |
+          keytool -genkey -v -keystore release.keystore -alias skytron \
+            -keyalg RSA -keysize 2048 -validity 10000 \
+            -storepass skytron123 -keypass skytron123 \
+            -dname "CN=Skytron, OU=Dev, O=Skytron, L=Unknown, ST=Unknown, C=US"
+      - run: ./gradlew assembleRelease
+        env:
+          KEYSTORE_PATH: release.keystore
+          KEYSTORE_PASSWORD: skytron123
+          KEY_ALIAS: skytron
+          KEY_PASSWORD: skytron123
+      - uses: actions/upload-artifact@v7
+        with:
+          name: skytron-release
+          path: app/build/outputs/apk/release/app-release.apk
+          archive: false
+          if-no-files-found: error

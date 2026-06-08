@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="@color/bg_dark">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Brain Status"
+        android:textColor="@color/accent"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp" />
+    <TextView
+        android:id="@+id/brainPhase"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="—"
+        android:textColor="@color/text_primary"
+        android:textSize="20sp"
+        android:layout_marginBottom="12dp" />
+    <TextView
+        android:id="@+id/brainEmotions"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp" />
+    <TextView
+        android:id="@+id/brainEnergy"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text=""
+        android:textColor="@color/text_secondary"
+        android:textSize="13sp"
+        android:layout_marginBottom="16dp" />
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Recent Thoughts"
+        android:textColor="@color/text_secondary"
+        android:textSize="12sp"
+        android:layout_marginBottom="4dp" />
+    <TextView
+        android:id="@+id/brainThoughts"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:text=""
+        android:textColor="@color/text_primary"
+        android:textSize="11sp"
+        android:lineSpacingExtra="2sp" />
+    <Button
+        android:id="@+id/brainRefreshBtn"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Refresh"
+        android:textColor="@color/bg_dark"
+        android:backgroundTint="@color/accent"
+        android:layout_marginTop="8dp" />
+</LinearLayout>

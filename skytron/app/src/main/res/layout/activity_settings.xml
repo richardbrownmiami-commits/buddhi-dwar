@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/bg_dark">
+<LinearLayout
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Skytron"
+        android:textColor="@color/accent"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:layout_marginBottom="20dp" />
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:strokeColor="#22FFFFFF"
+        app:strokeWidth="1dp"
+        android:layout_marginBottom="12dp">
+    <LinearLayout android:orientation="vertical" android:padding="16dp"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Gateway" android:textColor="@color/accent"
+        android:textSize="13sp" android:textStyle="bold" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="API Key" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <EditText android:id="@+id/apiKeyInput" android:layout_width="match_parent"
+        android:layout_height="48dp" android:hint="sk-..." android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary" android:background="@drawable/card_bg_3d"
+        android:padding="12dp" android:inputType="textPassword" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Gateway URL" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <EditText android:id="@+id/gatewayUrlInput" android:layout_width="match_parent"
+        android:layout_height="48dp" android:hint="@string/gateway_url"
+        android:textColor="@color/text_primary" android:textColorHint="@color/text_secondary"
+        android:background="@drawable/card_bg_3d" android:padding="12dp" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="LLM Model" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <EditText android:id="@+id/modelInput" android:layout_width="match_parent"
+        android:layout_height="48dp" android:hint="llama-3.3-70b-versatile"
+        android:textColor="@color/text_primary" android:textColorHint="@color/text_secondary"
+        android:background="@drawable/card_bg_3d" android:padding="12dp" />
+    </LinearLayout></com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        app:cardCornerRadius="16dp" app:cardElevation="0dp"
+        app:strokeColor="#22FFFFFF" app:strokeWidth="1dp" android:layout_marginBottom="12dp">
+    <LinearLayout android:orientation="vertical" android:padding="16dp"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Brain Connection" android:textColor="@color/accent"
+        android:textSize="13sp" android:textStyle="bold" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Brain URL" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <EditText android:id="@+id/brainUrlInput" android:layout_width="match_parent"
+        android:layout_height="48dp" android:hint="https://saraha-brain..."
+        android:text="@string/brain_url_default" android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary" android:background="@drawable/card_bg_3d"
+        android:padding="12dp" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Brain Key (if required)" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <EditText android:id="@+id/brainKeyInput" android:layout_width="match_parent"
+        android:layout_height="48dp" android:hint="optional" android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary" android:background="@drawable/card_bg_3d"
+        android:padding="12dp" />
+    </LinearLayout></com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        app:cardCornerRadius="16dp" app:cardElevation="0dp"
+        app:strokeColor="#22FFFFFF" app:strokeWidth="1dp" android:layout_marginBottom="12dp">
+    <LinearLayout android:orientation="vertical" android:padding="16dp"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Permissions" android:textColor="@color/accent"
+        android:textSize="13sp" android:textStyle="bold" android:layout_marginBottom="8dp" />
+    <androidx.appcompat.widget.SwitchCompat android:id="@+id/micEnabledSwitch"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:text="Microphone" android:textColor="@color/text_primary" android:checked="true" />
+    <androidx.appcompat.widget.SwitchCompat android:id="@+id/camEnabledSwitch"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:text="Camera" android:textColor="@color/text_primary" android:checked="true" />
+    <androidx.appcompat.widget.SwitchCompat android:id="@+id/gpsEnabledSwitch"
+        android:layout_width="match_parent" android:layout_height="48dp"
+        android:text="GPS" android:textColor="@color/text_primary" android:checked="true" />
+    </LinearLayout></com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        app:cardCornerRadius="16dp" app:cardElevation="0dp"
+        app:strokeColor="#22FFFFFF" app:strokeWidth="1dp" android:layout_marginBottom="12dp">
+    <LinearLayout android:orientation="vertical" android:padding="16dp"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Voice" android:textColor="@color/accent"
+        android:textSize="13sp" android:textStyle="bold" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Quality" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <Spinner android:id="@+id/voiceQualitySpinner" android:layout_width="match_parent"
+        android:layout_height="48dp" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Accent" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <Spinner android:id="@+id/accentSpinner" android:layout_width="match_parent"
+        android:layout_height="48dp" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Pitch" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <SeekBar android:id="@+id/pitchSeek" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:max="20" android:progress="10"
+        android:layout_marginBottom="2dp" />
+    <TextView android:id="@+id/pitchLabel" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:text="1.0x"
+        android:textColor="@color/text_primary" android:textSize="11sp"
+        android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Speed" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <SeekBar android:id="@+id/speedSeek" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:max="20" android:progress="10"
+        android:layout_marginBottom="2dp" />
+    <TextView android:id="@+id/speedLabel" android:layout_width="wrap_content"
+        android:layout_height="wrap_content" android:text="1.0x"
+        android:textColor="@color/text_primary" android:textSize="11sp" />
+    </LinearLayout></com.google.android.material.card.MaterialCardView>
+    <com.google.android.material.card.MaterialCardView
+        android:layout_width="match_parent" android:layout_height="wrap_content"
+        app:cardCornerRadius="16dp" app:cardElevation="0dp"
+        app:strokeColor="#22FFFFFF" app:strokeWidth="1dp" android:layout_marginBottom="12dp">
+    <LinearLayout android:orientation="vertical" android:padding="16dp"
+        android:layout_width="match_parent" android:layout_height="wrap_content">
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="Auto Upgrade" android:textColor="@color/accent"
+        android:textSize="13sp" android:textStyle="bold" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="GitHub Token" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <EditText android:id="@+id/githubTokenInput" android:layout_width="match_parent"
+        android:layout_height="48dp" android:hint="ghp_..." android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary" android:background="@drawable/card_bg_3d"
+        android:padding="12dp" android:inputType="textPassword" android:layout_marginBottom="12dp" />
+    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+        android:text="GitHub Repo" android:textColor="@color/text_secondary" android:textSize="11sp" />
+    <EditText android:id="@+id/githubRepoInput" android:layout_width="match_parent"
+        android:layout_height="48dp" android:hint="owner/skytron-platform"
+        android:text="@string/github_repo_default" android:textColor="@color/text_primary"
+        android:textColorHint="@color/text_secondary" android:background="@drawable/card_bg_3d"
+        android:padding="12dp" />
+    </LinearLayout></com.google.android.material.card.MaterialCardView>
+    <Button
+        android:id="@+id/manageAppsBtn"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Manage Allowed Apps"
+        android:textColor="@color/accent"
+        android:backgroundTint="#331A1A3E"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+        android:layout_marginBottom="24dp" />
+    <Button
+        android:id="@+id/saveBtn"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Save &amp; Start"
+        android:textColor="@color/bg_dark"
+        android:backgroundTint="@color/accent"
+        android:layout_marginBottom="16dp" />
+    <Button
+        android:id="@+id/stopServiceBtn"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:text="Stop Background Service"
+        android:textColor="@color/accent"
+        android:backgroundTint="#33FF0000"
+        style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+</LinearLayout>
+</ScrollView>

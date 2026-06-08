@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Skytron</string>
+    <string name="gateway_url">https://buddhi-dwar.richard-brown-miami.workers.dev</string>
+    <string name="system_prompt">You are Skytron AI assistant.</string>
+    <string name="github_repo_default">richardbrownmiami-commits/skytron-platform</string>
+    <string name="brain_url_default">https://saraha-brain.richard-brown-miami.workers.dev</string>
+    <string-array name="voice_quality">
+        <item>Default (Pico)</item>
+        <item>Neural Preferred</item>
+        <item>Neural Only</item>
+    </string-array>
+    <string-array name="accents">
+        <item>US English</item>
+        <item>UK English</item>
+        <item>Australian English</item>
+        <item>Indian English</item>
+    </string-array>
+</resources>

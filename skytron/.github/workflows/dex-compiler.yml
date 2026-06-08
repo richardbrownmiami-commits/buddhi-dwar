@@ -1,0 +1,31 @@
+name: Dex Compiler
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Kotlin source code to compile'
+        required: true
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Write source
+        run: |
+          mkdir -p patch/src/main/java/com/skytron/patch
+          cat > patch/src/main/java/com/skytron/patch/PatchModule.kt << 'EOF'
+          ${{ github.event.inputs.source }}
+          EOF
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - name: Compile to DEX
+        run: |
+          mkdir -p patch/build
+          kotlinc patch/src -d patch/build/classes.jar
+          d8 --lib "$ANDROID_HOME/platforms/android-34/android.jar" --output patch/build/classes.dex patch/build/classes.jar
+      - uses: actions/upload-artifact@v4
+        with:
+          name: patch-dex
+          path: patch/build/classes.dex

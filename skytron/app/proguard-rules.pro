@@ -1,0 +1,2 @@
+-keepclassmembers class com.skytron.platform.** { *; }
+-keep class com.google.gson.** { *; }

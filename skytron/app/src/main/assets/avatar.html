@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
+<style>*{margin:0;padding:0;box-sizing:border-box}body{background:#0D0D1A;overflow:hidden;display:flex;justify-content:center;align-items:center;height:100vh}
+#canvas{width:100vw;height:100vh;display:block}
+canvas{width:100%!important;height:100%!important}
+.ripple{position:fixed;border-radius:50%;background:radial-gradient(circle,rgba(0,212,255,0.3) 0%,transparent 70%);pointer-events:none;animation:rippleAnim 1.5s ease-out forwards;z-index:10}
+@keyframes rippleAnim{0%{width:0;height:0;opacity:1}100%{width:300px;height:300px;opacity:0}}
+</style></head>
+<body>
+<div id="canvas"></div>
+<script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display@0.4.0/dist/pixi-live2d-display.js"></script>
+<script>
+let app, model;
+async function init(modelUrl) {
+    app = new PIXI.Application({view: document.getElementById('canvas'),resizeTo: window,transparent: true,antialias: true});
+    const assets = await PIXI.Assets.load(modelUrl);
+    model = new PIXI.live2d.Live2DModel(assets);
+    model.anchor.set(0.5,0.5);
+    model.position.set(app.screen.width/2, app.screen.height/2+40);
+    model.scale.set(0.3);
+    app.stage.addChild(model);
+}
+function setExpression(expr) {
+    if(!model)return;
+    const map={happy:'f01',sad:'f02',angry:'f03',surprised:'f04',neutral:'f01',thinking:'f03',idle:'f01'};
+    const id=map[expr]||'f01';
+    try{model.motion(id);}catch(e){}
+    try{model.expression(id);}catch(e){}
+}
+function triggerRipple(x,y) {
+    const el=document.createElement('div');
+    el.className='ripple';
+    el.style.left=(x||window.innerWidth/2)-150+'px';
+    el.style.top=(y||window.innerHeight/2)-150+'px';
+    document.body.appendChild(el);
+    setTimeout(()=>el.remove(),1500);
+}
+function speak(text) {
+    triggerRipple();
+    setExpression('surprised');
+    setTimeout(()=>setExpression('idle'),2000);
+}
+window.init=init;window.setExpression=setExpression;window.triggerRipple=triggerRipple;window.speak=speak;
+</script></body></html>

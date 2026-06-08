@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="bg_dark">#FF0D0D1A</color>
+    <color name="bg_card">#FF1A1A2E</color>
+    <color name="accent">#FF00D4FF</color>
+    <color name="accent_purple">#FF7B2FF7</color>
+    <color name="text_primary">#FFE0E0FF</color>
+    <color name="text_secondary">#FF8888AA</color>
+    <color name="tile_mic">#FF00FF88</color>
+    <color name="tile_cam">#FFFF6600</color>
+    <color name="tile_gps">#FF0088FF</color>
+    <color name="ripple">#44FFFFFF</color>
+</resources>
