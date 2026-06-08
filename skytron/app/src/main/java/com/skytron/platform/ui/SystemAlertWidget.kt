@@ -22,6 +22,7 @@ class SystemAlertWidget(ctx: Context) : FrameLayout(ctx) {
     private val handler = Handler(Looper.getMainLooper())
     private val speechBubble: TextView
     private var peekTimer: Runnable? = null
+    private var attached = false
     init {
         val size = (160 * ctx.resources.displayMetrics.density).toInt()
         val bigSize = (220 * ctx.resources.displayMetrics.density).toInt()
@@ -91,7 +92,7 @@ class SystemAlertWidget(ctx: Context) : FrameLayout(ctx) {
         peekTimer = r
         handler.postDelayed(r, 6000)
     }
-    fun show() { try { wm.addView(this, params) } catch (_: Exception) {} }
-    fun hide() { val t = peekTimer; if (t != null) handler.removeCallbacks(t); try { wm.removeView(this) } catch (_: Exception) {} }
+    fun show() { if (!attached) { try { wm.addView(this, params); attached = true } catch (_: Exception) {} } }
+    fun hide() { val t = peekTimer; if (t != null) handler.removeCallbacks(t); if (attached) { try { wm.removeView(this); attached = false } catch (_: Exception) {} } }
     fun destroy() { avatar.destroy(); hide() }
 }
