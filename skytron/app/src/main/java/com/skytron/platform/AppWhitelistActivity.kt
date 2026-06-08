@@ -11,7 +11,7 @@ class AppWhitelistActivity : AppCompatActivity() {
         val list = ListView(this).apply { layoutParams = android.view.ViewGroup.LayoutParams(-1, -1) }
         list.choiceMode = ListView.CHOICE_MODE_MULTIPLE
         setContentView(list)
-        supportActionBar?.setTitle("Choose Allowed Apps")
+        title = "Choose Allowed Apps"
         val prefs = getSharedPreferences("skytron", MODE_PRIVATE)
         val allowed = prefs.getString("allowed_apps", "")?.split(",")?.filter { it.isNotBlank() }?.toSet() ?: emptySet()
         val pm = packageManager
